@@ -1,0 +1,48 @@
+@import "tailwindcss";
+@import "../themes/teal.css";
+@import "../themes/amber.css";
+@import "../themes/blue.css";
+
+:root {
+  color: var(--text0);
+  background: var(--bg0);
+  font-family: "Space Grotesk", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(circle at top right, rgb(6 214 160 / 0.14), transparent 22rem),
+    radial-gradient(circle at bottom left, rgb(79 158 255 / 0.12), transparent 20rem),
+    var(--bg0);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+code,
+pre {
+  font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
+}
+
+::selection {
+  background: rgb(6 214 160 / 0.24);
+  color: var(--text0);
+}

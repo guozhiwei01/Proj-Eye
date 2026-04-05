@@ -1,0 +1,17 @@
+[data-theme="blue"] {
+  --bg0: #060a12;
+  --bg1: #0a1020;
+  --bg2: #0f1730;
+  --bg3: #12203f;
+  --bg4: #17305c;
+  --accent: #4da3ff;
+  --accent2: #00d0ff;
+  --red: #ff5d73;
+  --yellow: #ffcf5a;
+  --blue: #61d3ff;
+  --text0: #edf4ff;
+  --text1: #9db6d9;
+  --text2: #47627f;
+  --border: #ffffff12;
+  --border2: #ffffff1f;
+}
