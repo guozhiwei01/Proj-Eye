@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { usePanelsStore } from "../../store/panels";
 import { useWorkspaceStore } from "../../store/workspace";
 import {
@@ -49,9 +50,9 @@ export default function Workspace({
   const activeTab = terminalTabs.find((tab) => tab.active) ?? terminalTabs[0];
   const activeSession = sessions.find((session) => session.id === activeTab?.sessionId) ?? null;
 
-  const createNewTab = () => {
+  const createNewTab = useCallback(() => {
     void addTab(project.id);
-  };
+  }, [addTab, project.id]);
 
   return (
     <section className="space-y-4">

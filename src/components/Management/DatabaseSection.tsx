@@ -111,7 +111,7 @@ export default function DatabaseSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.name")}</span>
             <input
               value={draft.name}
-              onChange={(event) => setDraft((state) => ({ ...state, name: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, name: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -119,9 +119,7 @@ export default function DatabaseSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.databaseType")}</span>
             <select
               value={draft.type}
-              onChange={(event) =>
-                setDraft((state) => ({ ...state, type: event.currentTarget.value as DatabaseDraft["type"] }))
-              }
+              onChange={(event) => { const v = event.currentTarget.value as DatabaseDraft["type"]; setDraft((state) => ({ ...state, type: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             >
               <option value={DatabaseType.Mysql}>{databaseTypeLabel(locale, DatabaseType.Mysql)}</option>
@@ -136,7 +134,7 @@ export default function DatabaseSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.host")}</span>
             <input
               value={draft.host}
-              onChange={(event) => setDraft((state) => ({ ...state, host: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, host: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -145,7 +143,7 @@ export default function DatabaseSection() {
             <input
               type="number"
               value={draft.port}
-              onChange={(event) => setDraft((state) => ({ ...state, port: Number(event.currentTarget.value) }))}
+              onChange={(event) => { const v = Number(event.currentTarget.value); setDraft((state) => ({ ...state, port: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -156,7 +154,7 @@ export default function DatabaseSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.username")}</span>
             <input
               value={draft.username ?? ""}
-              onChange={(event) => setDraft((state) => ({ ...state, username: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, username: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -164,7 +162,7 @@ export default function DatabaseSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.group")}</span>
             <input
               value={draft.group}
-              onChange={(event) => setDraft((state) => ({ ...state, group: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, group: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -175,7 +173,7 @@ export default function DatabaseSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.defaultDatabase")}</span>
             <input
               value={draft.defaultDatabase ?? ""}
-              onChange={(event) => setDraft((state) => ({ ...state, defaultDatabase: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, defaultDatabase: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -184,7 +182,7 @@ export default function DatabaseSection() {
             <input
               type="number"
               value={draft.dbNumber ?? 0}
-              onChange={(event) => setDraft((state) => ({ ...state, dbNumber: Number(event.currentTarget.value) }))}
+              onChange={(event) => { const v = Number(event.currentTarget.value); setDraft((state) => ({ ...state, dbNumber: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -194,7 +192,7 @@ export default function DatabaseSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.credential")}</span>
           <input
             value={draft.credentialValue ?? ""}
-            onChange={(event) => setDraft((state) => ({ ...state, credentialValue: event.currentTarget.value }))}
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, credentialValue: v })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             placeholder={t("management.keepPassword")}
           />
@@ -204,7 +202,7 @@ export default function DatabaseSection() {
           <input
             type="checkbox"
             checked={draft.readonlyMode}
-            onChange={(event) => setDraft((state) => ({ ...state, readonlyMode: event.currentTarget.checked }))}
+            onChange={(event) => { const v = event.currentTarget.checked; setDraft((state) => ({ ...state, readonlyMode: v })); }}
           />
           {t("management.readonlyMode")}
         </label>
@@ -213,15 +211,7 @@ export default function DatabaseSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.tags")}</span>
           <input
             value={tagText}
-            onChange={(event) =>
-              setDraft((state) => ({
-                ...state,
-                tags: event.currentTarget.value
-                  .split(",")
-                  .map((tag) => tag.trim())
-                  .filter(Boolean),
-              }))
-            }
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, tags: v.split(",").map((tag) => tag.trim()).filter(Boolean) })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             placeholder={t("management.tagsPlaceholder")}
           />

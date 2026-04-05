@@ -1,6 +1,8 @@
 import { useI18n } from "../../lib/i18n";
 import type { AlertItem, HealthMetrics, Project, SessionSummary } from "../../types/models";
 
+const ERROR_RE = /error|exception|timeout/i;
+
 interface TerminalPaneProps {
   project: Project;
   alert: AlertItem | null;
@@ -34,7 +36,7 @@ export default function TerminalPane({
   return (
     <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(180deg,var(--bg1),var(--bg0))] p-4 shadow-[0_18px_90px_rgba(0,0,0,0.2)]">
       <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2" role="presentation" aria-hidden="true">
           <span className="h-3 w-3 rounded-full bg-[var(--red)]" />
           <span className="h-3 w-3 rounded-full bg-[var(--yellow)]" />
           <span className="h-3 w-3 rounded-full bg-[var(--accent)]" />
@@ -48,11 +50,16 @@ export default function TerminalPane({
         </p>
       </div>
 
-      <pre className="mt-4 overflow-x-auto text-sm leading-7 text-[var(--text1)]">
+      <pre
+        aria-label={t("workspace.remoteCommand")}
+        aria-live="polite"
+        aria-atomic="false"
+        className="mt-4 overflow-x-auto text-sm leading-7 text-[var(--text1)]"
+      >
         {lines.map((line, index) => (
           <div
-            key={`${line}-${index}`}
-            className={/error|exception|timeout/i.test(line) ? "text-[var(--red)]" : undefined}
+            key={index}
+            className={ERROR_RE.test(line) ? "text-[var(--red)]" : undefined}
           >
             {line}
           </div>
@@ -85,12 +92,18 @@ export default function TerminalPane({
           </button>
         </div>
 
+        <label htmlFor="terminal-command-input" className="sr-only">
+          {t("workspace.commandPlaceholder")}
+        </label>
         <input
+          id="terminal-command-input"
           value={commandDraft}
           onChange={(event) => onCommandChange(event.currentTarget.value)}
           disabled={!session || commandBusy}
           placeholder={t("workspace.commandPlaceholder")}
-          className="mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 font-mono text-sm text-[var(--text0)] outline-none disabled:cursor-not-allowed disabled:opacity-60"
+          autoComplete="off"
+          spellCheck={false}
+          className="mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 font-mono text-sm text-[var(--text0)] outline-none transition focus:border-[var(--border2)] disabled:cursor-not-allowed disabled:opacity-60"
         />
         {commandError ? <p className="mt-3 text-sm text-[var(--red)]">{commandError}</p> : null}
       </form>

@@ -25,8 +25,9 @@ export default function AIOverlay({ project, server, databases, alert }: AIOverl
 
   return (
     <aside
-      className={`w-full shrink-0 transition-all duration-300 xl:w-[360px] ${
-        isAiOpen ? "translate-x-0 opacity-100" : "pointer-events-none xl:w-0 xl:translate-x-6 xl:opacity-0"
+      aria-label={t("ai.heading")}
+      className={`w-full shrink-0 transition-[opacity,transform] duration-300 xl:w-[360px] ${
+        isAiOpen ? "translate-x-0 opacity-100" : "pointer-events-none xl:w-0 xl:translate-x-4 xl:opacity-0"
       }`}
     >
       <div className="flex h-full flex-col gap-4 rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(180deg,var(--bg1),var(--bg2))] p-4 shadow-[0_18px_80px_rgba(0,0,0,0.22)]">
@@ -38,6 +39,7 @@ export default function AIOverlay({ project, server, databases, alert }: AIOverl
           <div className="flex gap-2">
             <button
               type="button"
+              aria-label={t("ai.analyze")}
               onClick={() =>
                 void analyze(
                   project.id,
@@ -45,14 +47,15 @@ export default function AIOverlay({ project, server, databases, alert }: AIOverl
                   databases.map((database) => `${database.name}:${database.type}`),
                 )
               }
-              className="rounded-full border border-[var(--accent)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)]"
+              className="rounded-full border border-[var(--accent)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)] transition hover:bg-[var(--accent)]/10"
             >
               {t("ai.analyze")}
             </button>
             <button
               type="button"
+              aria-label={t("ai.close")}
               onClick={toggleAiOverlay}
-              className="rounded-full border border-[var(--border)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)]"
+              className="rounded-full border border-[var(--border)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition hover:border-[var(--border2)]"
             >
               {t("ai.close")}
             </button>

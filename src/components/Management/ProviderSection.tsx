@@ -102,7 +102,7 @@ export default function ProviderSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.name")}</span>
             <input
               value={draft.name}
-              onChange={(event) => setDraft((state) => ({ ...state, name: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, name: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -110,9 +110,7 @@ export default function ProviderSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.providerType")}</span>
             <select
               value={draft.type}
-              onChange={(event) =>
-                setDraft((state) => ({ ...state, type: event.currentTarget.value as ProviderDraft["type"] }))
-              }
+              onChange={(event) => { const v = event.currentTarget.value as ProviderDraft["type"]; setDraft((state) => ({ ...state, type: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             >
               <option value={ProviderType.OpenAI}>{providerTypeLabel(locale, ProviderType.OpenAI)}</option>
@@ -127,7 +125,7 @@ export default function ProviderSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.model")}</span>
             <input
               value={draft.model}
-              onChange={(event) => setDraft((state) => ({ ...state, model: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, model: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -135,7 +133,7 @@ export default function ProviderSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.baseUrl")}</span>
             <input
               value={draft.baseUrl ?? ""}
-              onChange={(event) => setDraft((state) => ({ ...state, baseUrl: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, baseUrl: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
               placeholder={t("management.baseUrlPlaceholder")}
             />
@@ -146,7 +144,7 @@ export default function ProviderSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.apiKey")}</span>
           <input
             value={draft.apiKeyValue ?? ""}
-            onChange={(event) => setDraft((state) => ({ ...state, apiKeyValue: event.currentTarget.value }))}
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, apiKeyValue: v })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             placeholder={t("management.keepApiKey")}
           />
@@ -156,7 +154,7 @@ export default function ProviderSection() {
           <input
             type="checkbox"
             checked={draft.enabled}
-            onChange={(event) => setDraft((state) => ({ ...state, enabled: event.currentTarget.checked }))}
+            onChange={(event) => { const v = event.currentTarget.checked; setDraft((state) => ({ ...state, enabled: v })); }}
           />
           {t("management.providerEnabled")}
         </label>

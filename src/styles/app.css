@@ -6,7 +6,7 @@
 :root {
   color: var(--text0);
   background: var(--bg0);
-  font-family: "Space Grotesk", "Segoe UI Variable Text", "Segoe UI", sans-serif;
+  font-family: "IBM Plex Sans", "Segoe UI Variable Text", "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -22,8 +22,8 @@ body,
 body {
   margin: 0;
   background:
-    radial-gradient(circle at top right, rgb(6 214 160 / 0.14), transparent 22rem),
-    radial-gradient(circle at bottom left, rgb(79 158 255 / 0.12), transparent 20rem),
+    radial-gradient(circle at top right, var(--grad-a), transparent 22rem),
+    radial-gradient(circle at bottom left, var(--grad-b), transparent 20rem),
     var(--bg0);
 }
 
@@ -42,7 +42,21 @@ pre {
   font-family: "JetBrains Mono", "Cascadia Code", "Fira Code", monospace;
 }
 
+button {
+  cursor: pointer;
+}
+
 ::selection {
-  background: rgb(6 214 160 / 0.24);
+  background: var(--grad-a);
   color: var(--text0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

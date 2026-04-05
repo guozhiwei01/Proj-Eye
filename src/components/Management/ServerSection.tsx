@@ -103,7 +103,7 @@ export default function ServerSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.name")}</span>
           <input
             value={draft.name}
-            onChange={(event) => setDraft((state) => ({ ...state, name: event.currentTarget.value }))}
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((s) => ({ ...s, name: v })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
           />
         </label>
@@ -113,7 +113,7 @@ export default function ServerSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.host")}</span>
             <input
               value={draft.host}
-              onChange={(event) => setDraft((state) => ({ ...state, host: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((s) => ({ ...s, host: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -122,7 +122,7 @@ export default function ServerSection() {
             <input
               type="number"
               value={draft.port}
-              onChange={(event) => setDraft((state) => ({ ...state, port: Number(event.currentTarget.value) }))}
+              onChange={(event) => { const v = Number(event.currentTarget.value); setDraft((s) => ({ ...s, port: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -133,7 +133,7 @@ export default function ServerSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.username")}</span>
             <input
               value={draft.username}
-              onChange={(event) => setDraft((state) => ({ ...state, username: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((s) => ({ ...s, username: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -141,7 +141,7 @@ export default function ServerSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.group")}</span>
             <input
               value={draft.group}
-              onChange={(event) => setDraft((state) => ({ ...state, group: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((s) => ({ ...s, group: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -153,7 +153,7 @@ export default function ServerSection() {
             <select
               value={draft.authType}
               onChange={(event) =>
-                setDraft((state) => ({ ...state, authType: event.currentTarget.value as ServerDraft["authType"] }))
+                { const v = event.currentTarget.value as ServerDraft["authType"]; setDraft((s) => ({ ...s, authType: v })); }
               }
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             >
@@ -167,7 +167,7 @@ export default function ServerSection() {
             <select
               value={draft.osType}
               onChange={(event) =>
-                setDraft((state) => ({ ...state, osType: event.currentTarget.value as ServerDraft["osType"] }))
+                { const v = event.currentTarget.value as ServerDraft["osType"]; setDraft((s) => ({ ...s, osType: v })); }
               }
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             >
@@ -185,7 +185,7 @@ export default function ServerSection() {
             </span>
             <textarea
               value={draft.credentialValue ?? ""}
-              onChange={(event) => setDraft((state) => ({ ...state, credentialValue: event.currentTarget.value }))}
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((s) => ({ ...s, credentialValue: v })); }}
               rows={4}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
               placeholder={t("management.keepSecret")}

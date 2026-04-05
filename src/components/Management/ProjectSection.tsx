@@ -138,7 +138,7 @@ export default function ProjectSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.projectName")}</span>
           <input
             value={draft.name}
-            onChange={(event) => setDraft((state) => ({ ...state, name: event.currentTarget.value }))}
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, name: v })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
           />
         </label>
@@ -147,7 +147,7 @@ export default function ProjectSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.server")}</span>
           <select
             value={draft.serverId}
-            onChange={(event) => setDraft((state) => ({ ...state, serverId: event.currentTarget.value }))}
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, serverId: v })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
           >
             <option value="">{t("management.selectServer")}</option>
@@ -163,7 +163,7 @@ export default function ProjectSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.rootPath")}</span>
           <input
             value={draft.rootPath}
-            onChange={(event) => setDraft((state) => ({ ...state, rootPath: event.currentTarget.value }))}
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, rootPath: v })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
           />
         </label>
@@ -173,9 +173,7 @@ export default function ProjectSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.environment")}</span>
             <select
               value={draft.environment}
-              onChange={(event) =>
-                setDraft((state) => ({ ...state, environment: event.currentTarget.value as ProjectDraft["environment"] }))
-              }
+              onChange={(event) => { const v = event.currentTarget.value as ProjectDraft["environment"]; setDraft((state) => ({ ...state, environment: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             >
               <option value={Environment.Production}>{environmentLabel(locale, Environment.Production)}</option>
@@ -187,9 +185,7 @@ export default function ProjectSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.deployType")}</span>
             <select
               value={draft.deployType}
-              onChange={(event) =>
-                setDraft((state) => ({ ...state, deployType: event.currentTarget.value as ProjectDraft["deployType"] }))
-              }
+              onChange={(event) => { const v = event.currentTarget.value as ProjectDraft["deployType"]; setDraft((state) => ({ ...state, deployType: v })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             >
               <option value={DeployType.Pm2}>{deployTypeLabel(locale, DeployType.Pm2)}</option>
@@ -212,14 +208,7 @@ export default function ProjectSection() {
                 <input
                   type="checkbox"
                   checked={draft.databaseIds.includes(database.id)}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      databaseIds: event.currentTarget.checked
-                        ? [...state.databaseIds, database.id]
-                        : state.databaseIds.filter((item) => item !== database.id),
-                    }))
-                  }
+                  onChange={(event) => { const v = event.currentTarget.checked; setDraft((state) => ({ ...state, databaseIds: v ? [...state.databaseIds, database.id] : state.databaseIds.filter((item) => item !== database.id) })); }}
                 />
                 {database.name}
               </label>
@@ -232,14 +221,7 @@ export default function ProjectSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.primaryLogType")}</span>
             <select
               value={draft.logSources[0]?.type ?? LogSourceType.File}
-              onChange={(event) =>
-                setDraft((state) => ({
-                  ...state,
-                  logSources: updatePrimaryLog(state.logSources, {
-                    type: event.currentTarget.value as LogSource["type"],
-                  }),
-                }))
-              }
+              onChange={(event) => { const v = event.currentTarget.value as LogSource["type"]; setDraft((state) => ({ ...state, logSources: updatePrimaryLog(state.logSources, { type: v }) })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             >
               <option value={LogSourceType.File}>{logSourceTypeLabel(locale, LogSourceType.File)}</option>
@@ -253,14 +235,7 @@ export default function ProjectSection() {
             <span className="text-sm font-medium text-[var(--text0)]">{t("management.primaryLogLabel")}</span>
             <input
               value={draft.logSources[0]?.label ?? ""}
-              onChange={(event) =>
-                setDraft((state) => ({
-                  ...state,
-                  logSources: updatePrimaryLog(state.logSources, {
-                    label: event.currentTarget.value,
-                  }),
-                }))
-              }
+              onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, logSources: updatePrimaryLog(state.logSources, { label: v }) })); }}
               className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             />
           </label>
@@ -270,14 +245,7 @@ export default function ProjectSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.primaryLogValue")}</span>
           <input
             value={draft.logSources[0]?.value ?? ""}
-            onChange={(event) =>
-              setDraft((state) => ({
-                ...state,
-                logSources: updatePrimaryLog(state.logSources, {
-                  value: event.currentTarget.value,
-                }),
-              }))
-            }
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, logSources: updatePrimaryLog(state.logSources, { value: v }) })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
           />
         </label>
@@ -286,9 +254,7 @@ export default function ProjectSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.healthCheck")}</span>
           <input
             value={draft.healthCheckCommand ?? ""}
-            onChange={(event) =>
-              setDraft((state) => ({ ...state, healthCheckCommand: event.currentTarget.value }))
-            }
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, healthCheckCommand: v })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
           />
         </label>
@@ -297,15 +263,7 @@ export default function ProjectSection() {
           <span className="text-sm font-medium text-[var(--text0)]">{t("management.tags")}</span>
           <input
             value={tagText}
-            onChange={(event) =>
-              setDraft((state) => ({
-                ...state,
-                tags: event.currentTarget.value
-                  .split(",")
-                  .map((tag) => tag.trim())
-                  .filter(Boolean),
-              }))
-            }
+            onChange={(event) => { const v = event.currentTarget.value; setDraft((state) => ({ ...state, tags: v.split(",").map((tag) => tag.trim()).filter(Boolean) })); }}
             className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
             placeholder={t("management.projectTagsPlaceholder")}
           />

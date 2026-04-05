@@ -56,6 +56,7 @@ export default function Sidebar({ projects, activeProjectId }: SidebarProps) {
             </div>
             <button
               type="button"
+              aria-label={t("sidebar.new")}
               onClick={() => setManagementSection(ManagementSection.Projects)}
               className="rounded-2xl border border-[var(--border2)] px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--text1)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
@@ -70,41 +71,47 @@ export default function Sidebar({ projects, activeProjectId }: SidebarProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2">
+        <nav aria-label={t("sidebar.heading")} className="grid grid-cols-3 gap-2">
           <button
             type="button"
+            aria-label={t("sidebar.workspace")}
+            aria-pressed={activeView === AppView.Workspace}
             onClick={() => setActiveView(AppView.Workspace)}
-            className={`rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.18em] ${
+            className={`rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.18em] transition ${
               activeView === AppView.Workspace
                 ? "border-[var(--accent)] bg-[var(--bg3)] text-[var(--accent)]"
-                : "border-[var(--border)] text-[var(--text1)]"
+                : "border-[var(--border)] text-[var(--text1)] hover:border-[var(--border2)]"
             }`}
           >
             {t("sidebar.workspace")}
           </button>
           <button
             type="button"
+            aria-label={t("sidebar.manage")}
+            aria-pressed={activeView === AppView.Manage}
             onClick={() => setManagementSection(ManagementSection.Projects)}
-            className={`rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.18em] ${
+            className={`rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.18em] transition ${
               activeView === AppView.Manage
                 ? "border-[var(--accent2)] bg-[var(--bg3)] text-[var(--accent2)]"
-                : "border-[var(--border)] text-[var(--text1)]"
+                : "border-[var(--border)] text-[var(--text1)] hover:border-[var(--border2)]"
             }`}
           >
             {t("sidebar.manage")}
           </button>
           <button
             type="button"
+            aria-label={t("sidebar.settings")}
+            aria-pressed={activeView === AppView.Settings}
             onClick={() => setActiveView(AppView.Settings)}
-            className={`rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.18em] ${
+            className={`rounded-2xl border px-3 py-2 text-xs uppercase tracking-[0.18em] transition ${
               activeView === AppView.Settings
                 ? "border-[var(--blue)] bg-[var(--bg3)] text-[var(--blue)]"
-                : "border-[var(--border)] text-[var(--text1)]"
+                : "border-[var(--border)] text-[var(--text1)] hover:border-[var(--border2)]"
             }`}
           >
             {t("sidebar.settings")}
           </button>
-        </div>
+        </nav>
 
         <SearchBar value={searchQuery} onChange={setSearchQuery} />
         <FilterBar activeFilter={filterMode} onChange={setFilterMode} />

@@ -10,6 +10,9 @@ import { useAppStore } from "../store/app";
 import { useWorkspaceStore } from "../store/workspace";
 import { AlertLevel, AppView, FilterMode, type AlertItem, type Locale, type Project } from "../types/models";
 
+const ANOMALY_RE = /error|warn|exception|timeout/i;
+const ERROR_RE = /error|exception|timeout/i;
+
 function filterProjects(projects: Project[], searchQuery: string, filterMode: string) {
   const normalizedQuery = searchQuery.toLowerCase().trim();
 
@@ -38,7 +41,7 @@ function filterProjects(projects: Project[], searchQuery: string, filterMode: st
 }
 
 function buildAlert(project: Project, logLines: string[], locale: Locale): AlertItem | null {
-  const recentError = logLines.find((line) => /error|warn|exception|timeout/i.test(line));
+  const recentError = logLines.find((line) => ANOMALY_RE.test(line));
   if (!recentError && !project.recentIssue) {
     return null;
   }
@@ -46,7 +49,7 @@ function buildAlert(project: Project, logLines: string[], locale: Locale): Alert
   return {
     id: `${project.id}-alert`,
     projectId: project.id,
-    level: /error|exception|timeout/i.test(recentError ?? project.recentIssue ?? "")
+    level: ERROR_RE.test(recentError ?? project.recentIssue ?? "")
       ? AlertLevel.Error
       : AlertLevel.Warning,
     title:
@@ -96,16 +99,22 @@ export default function Home() {
     void hydrateProject(activeProject.id);
   }, [activeProject, activeView, hydrateProject]);
 
-  const activeServer = activeProject
-    ? config.servers.find((server) => server.id === activeProject.serverId) ?? null
-    : null;
-  const activeDatabases = activeProject
-    ? config.databases.filter((database) => activeProject.databaseIds.includes(database.id))
-    : [];
-  const activeLogs = activeProject
-    ? logs.filter((entry) => entry.projectId === activeProject.id).map((entry) => entry.line)
-    : [];
-  const activeAlert = activeProject ? buildAlert(activeProject, activeLogs, locale) : null;
+  const activeServer = useMemo(
+    () => activeProject ? config.servers.find((server) => server.id === activeProject.serverId) ?? null : null,
+    [activeProject, config.servers],
+  );
+  const activeDatabases = useMemo(
+    () => activeProject ? config.databases.filter((db) => activeProject.databaseIds.includes(db.id)) : [],
+    [activeProject, config.databases],
+  );
+  const activeLogs = useMemo(
+    () => activeProject ? logs.filter((e) => e.projectId === activeProject.id).map((e) => e.line) : [],
+    [activeProject, logs],
+  );
+  const activeAlert = useMemo(
+    () => activeProject ? buildAlert(activeProject, activeLogs, locale) : null,
+    [activeProject, activeLogs, locale],
+  );
 
   let content = null;
 

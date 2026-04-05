@@ -41,29 +41,33 @@ export default function ShortcutBar({
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
+          aria-label={t("shortcut.toggleAi")}
           onClick={onToggleAi}
-          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition-colors hover:border-[var(--accent)] hover:text-[var(--accent)]"
         >
           {t("shortcut.toggleAi")}
         </button>
         <button
           type="button"
+          aria-label={t("shortcut.openLogs")}
           onClick={onToggleLogs}
-          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition hover:border-[var(--yellow)] hover:text-[var(--yellow)]"
+          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition-colors hover:border-[var(--yellow)] hover:text-[var(--yellow)]"
         >
           {t("shortcut.openLogs")}
         </button>
         <button
           type="button"
+          aria-label={t("shortcut.openDatabase")}
           onClick={onToggleDatabase}
-          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition hover:border-[var(--blue)] hover:text-[var(--blue)]"
+          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition-colors hover:border-[var(--blue)] hover:text-[var(--blue)]"
         >
           {t("shortcut.openDatabase")}
         </button>
         <button
           type="button"
+          aria-label={t("shortcut.newTerminal")}
           onClick={onCreateTab}
-          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition hover:border-[var(--accent2)] hover:text-[var(--accent2)]"
+          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition-colors hover:border-[var(--accent2)] hover:text-[var(--accent2)]"
         >
           {t("shortcut.newTerminal")}
         </button>
