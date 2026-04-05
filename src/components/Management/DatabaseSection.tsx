@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { databaseTypeLabel, useI18n } from "../../lib/i18n";
+import { databaseTypeLabel, localizeErrorMessage, useI18n } from "../../lib/i18n";
 import { inspectCredentialRef } from "../../lib/backend";
 import { useAppStore } from "../../store/app";
 import { DatabaseType, type DatabaseDraft } from "../../types/models";
@@ -57,7 +57,7 @@ export default function DatabaseSection() {
     try {
       await action();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : t("management.databaseError"));
+      setError(localizeErrorMessage(locale, nextError, "management.databaseError"));
     }
   };
 

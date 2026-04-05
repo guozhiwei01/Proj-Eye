@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { authTypeLabel, osTypeLabel, useI18n } from "../../lib/i18n";
+import { authTypeLabel, localizeErrorMessage, osTypeLabel, useI18n } from "../../lib/i18n";
 import { inspectCredentialRef } from "../../lib/backend";
 import { useAppStore } from "../../store/app";
 import { AuthType, OSType, type ServerDraft } from "../../types/models";
@@ -11,7 +11,7 @@ function emptyServerDraft(): ServerDraft {
     host: "",
     port: 22,
     username: "",
-    authType: AuthType.PrivateKey,
+    authType: AuthType.Password,
     group: "production",
     osType: OSType.Linux,
   };
@@ -52,7 +52,7 @@ export default function ServerSection() {
     try {
       await action();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : t("management.serverError"));
+      setError(localizeErrorMessage(locale, nextError, "management.serverError"));
     }
   };
 

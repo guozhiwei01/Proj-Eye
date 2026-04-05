@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import {
   deployTypeLabel,
   environmentLabel,
+  localizeErrorMessage,
   logSourceTypeLabel,
   useI18n,
 } from "../../lib/i18n";
@@ -87,7 +88,7 @@ export default function ProjectSection() {
     try {
       await action();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : t("management.projectError"));
+      setError(localizeErrorMessage(locale, nextError, "management.projectError"));
     }
   };
 

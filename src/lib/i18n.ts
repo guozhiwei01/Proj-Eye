@@ -160,6 +160,13 @@ const translations: Record<LocaleValue, Record<string, string>> = {
     "vault.create": "创建 vault",
     "vault.unlock": "解锁",
     "vault.error": "无法解锁安全存储。",
+    "error.vaultLockedBeforeSavingCredentials": "请先解锁 vault，再保存凭据。",
+    "error.initializeOrUnlockVaultToStoreSecret": "请先初始化或解锁 vault，再将凭据保存到本地。",
+    "error.masterPasswordEmpty": "主密码不能为空。",
+    "error.masterPasswordIncorrect": "主密码不正确。",
+    "error.vaultAlreadyInitialized": "fallback vault 已经初始化。",
+    "error.vaultNotInitialized": "fallback vault 尚未初始化。",
+    "error.commandBlocked": "该命令被 Proj-Eye 安全策略拦截。",
     "secure.message.keyring": "系统 keyring 已启用，凭据会优先存入操作系统凭据管理器。",
     "secure.message.fallback.locked": "系统 keyring 不可用。请使用主密码解锁回退 vault。",
     "secure.message.fallback.unlocked": "系统 keyring 不可用。回退 vault 当前已解锁。",
@@ -369,6 +376,13 @@ const translations: Record<LocaleValue, Record<string, string>> = {
     "vault.create": "Create vault",
     "vault.unlock": "Unlock",
     "vault.error": "Unable to unlock the secure store.",
+    "error.vaultLockedBeforeSavingCredentials": "Unlock the vault before saving credentials.",
+    "error.initializeOrUnlockVaultToStoreSecret": "Initialize or unlock the vault before storing secrets locally.",
+    "error.masterPasswordEmpty": "Master password cannot be empty.",
+    "error.masterPasswordIncorrect": "Master password is incorrect.",
+    "error.vaultAlreadyInitialized": "Fallback vault is already initialized.",
+    "error.vaultNotInitialized": "Fallback vault is not initialized yet.",
+    "error.commandBlocked": "This command is blocked by the Proj-Eye safety policy.",
     "secure.message.keyring": "System keyring is active. Secrets are stored in the OS credential manager first.",
     "secure.message.fallback.locked": "System keyring is unavailable. Unlock the fallback vault with the master password.",
     "secure.message.fallback.unlocked": "System keyring is unavailable. The fallback vault is unlocked.",
@@ -442,6 +456,32 @@ const translations: Record<LocaleValue, Record<string, string>> = {
   },
 };
 
+Object.assign(translations[Locale.ZhCN], {
+  "ai.followUp": "\u7ee7\u7eed\u8ffd\u95ee",
+  "ai.askPlaceholder": "\u7ee7\u7eed\u8be2\u95ee\u5f53\u524d\u9879\u76ee\u3001\u65e5\u5fd7\u6216\u5efa\u8bae\u547d\u4ee4\u2026",
+  "ai.send": "\u53d1\u9001",
+  "ai.sending": "\u601d\u8003\u4e2d\u2026",
+  "ai.sendHint": "Enter \u53d1\u9001\uff0cShift+Enter \u6362\u884c",
+  "ai.assistant": "AI",
+  "ai.user": "\u4f60",
+  "ai.system": "\u7cfb\u7edf",
+  "ai.requestFailed": "AI \u56de\u590d\u672a\u80fd\u5b8c\u6210\u3002",
+  "ai.commandFailed": "\u5efa\u8bae\u547d\u4ee4\u672a\u80fd\u6267\u884c\u3002",
+});
+
+Object.assign(translations[Locale.EnUS], {
+  "ai.followUp": "Follow-up",
+  "ai.askPlaceholder": "Ask about the current project, logs, or the suggested command...",
+  "ai.send": "Send",
+  "ai.sending": "Thinking...",
+  "ai.sendHint": "Enter sends, Shift+Enter adds a new line",
+  "ai.assistant": "AI",
+  "ai.user": "You",
+  "ai.system": "System",
+  "ai.requestFailed": "The AI response could not be completed.",
+  "ai.commandFailed": "The suggested command could not be executed.",
+});
+
 function interpolate(template: string, params?: TranslationParams): string {
   if (!params) {
     return template;
@@ -453,6 +493,64 @@ function interpolate(template: string, params?: TranslationParams): string {
 export function translate(locale: LocaleValue, key: TranslationKey, params?: TranslationParams): string {
   const bundle = translations[locale] ?? translations[Locale.ZhCN];
   return interpolate(bundle[key] ?? translations[Locale.EnUS][key] ?? key, params);
+}
+
+const backendErrorKeyMap: Array<{
+  key: TranslationKey;
+  test: (message: string) => boolean;
+}> = [
+  {
+    key: "error.vaultLockedBeforeSavingCredentials",
+    test: (message) =>
+      message.includes("Unlock the fallback vault before saving credentials.") ||
+      message.includes("Unlock the vault before saving credentials."),
+  },
+  {
+    key: "error.initializeOrUnlockVaultToStoreSecret",
+    test: (message) =>
+      message.includes("Initialize or unlock the fallback vault to store this secret locally.") ||
+      message.includes("Initialize or unlock the vault to store this secret locally."),
+  },
+  {
+    key: "error.masterPasswordEmpty",
+    test: (message) => message.includes("Master password cannot be empty."),
+  },
+  {
+    key: "error.masterPasswordIncorrect",
+    test: (message) => message.includes("Master password is incorrect."),
+  },
+  {
+    key: "error.vaultAlreadyInitialized",
+    test: (message) => message.includes("Fallback vault is already initialized."),
+  },
+  {
+    key: "error.vaultNotInitialized",
+    test: (message) => message.includes("Fallback vault is not initialized yet."),
+  },
+  {
+    key: "error.commandBlocked",
+    test: (message) => message.includes("This command is blocked by the Proj-Eye safety policy."),
+  },
+];
+
+export function localizeErrorMessage(
+  locale: LocaleValue,
+  error: unknown,
+  fallbackKey?: TranslationKey,
+): string {
+  const fallback = fallbackKey ? translate(locale, fallbackKey) : "Unknown error";
+
+  if (error instanceof Error) {
+    const match = backendErrorKeyMap.find((item) => item.test(error.message));
+    return match ? translate(locale, match.key) : error.message || fallback;
+  }
+
+  if (typeof error === "string") {
+    const match = backendErrorKeyMap.find((item) => item.test(error));
+    return match ? translate(locale, match.key) : error || fallback;
+  }
+
+  return fallback;
 }
 
 export function themeLabel(locale: LocaleValue, theme: ThemeMode): string {

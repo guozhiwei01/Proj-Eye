@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { providerTypeLabel, useI18n } from "../../lib/i18n";
+import { localizeErrorMessage, providerTypeLabel, useI18n } from "../../lib/i18n";
 import { inspectCredentialRef } from "../../lib/backend";
 import { useAppStore } from "../../store/app";
 import { ProviderType, type ProviderDraft } from "../../types/models";
@@ -48,7 +48,7 @@ export default function ProviderSection() {
     try {
       await action();
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : t("management.providerError"));
+      setError(localizeErrorMessage(locale, nextError, "management.providerError"));
     }
   };
 

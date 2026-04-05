@@ -348,6 +348,11 @@ export interface AIMessage {
   createdAt: number;
 }
 
+export interface AiConversationResponse {
+  messages: AIMessage[];
+  suggestion: AiCommandSuggestion | null;
+}
+
 export interface HealthMetrics {
   cpu: number;
   memory: number;

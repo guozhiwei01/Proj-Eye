@@ -4,6 +4,7 @@ import {
   CommandRisk,
   CredentialKind,
   DatabaseType,
+  Locale,
   ProjectHealth,
   QuerySafety,
   ServerStatus,
@@ -12,6 +13,7 @@ import {
   emptyConfigBundle,
   type AIMessage,
   type AiCommandSuggestion,
+  type AiConversationResponse,
   type AiContextPack,
   type AppBootstrapState,
   type AppConfigBundle,
@@ -284,46 +286,172 @@ function buildRedisResult(databaseId: string, statement: string): QueryResult {
   };
 }
 
-function buildAiMessages(
+function previewText(locale: string, zh: string, en: string): string {
+  return locale === Locale.ZhCN ? zh : en;
+}
+
+function buildPreviewSuggestion(
   project: Project,
   context: AiContextPack,
-  provider: ProviderConfig | undefined,
-): { messages: AIMessage[]; suggestion: AiCommandSuggestion } {
-  const warningSource = [...context.logSnippet, ...context.terminalSnippet].join(" ").toLowerCase();
-  const timeoutDetected = warningSource.includes("timeout") || warningSource.includes("error");
-  const providerLabel = provider ? `${provider.name} / ${provider.model}` : "preview provider";
+  locale: string,
+  prompt?: string,
+): AiCommandSuggestion {
+  const combinedSignal = [prompt ?? "", ...context.logSnippet, ...context.terminalSnippet].join(" ").toLowerCase();
+  const prefersLogs = /log|tail|error|trace|warn|timeout|日志|报错|异常/.test(combinedSignal);
+  const prefersHealthCheck = /health|status|check|检查|状态/.test(combinedSignal);
 
-  const suggestion: AiCommandSuggestion = {
+  let command = project.logSources[0]
+    ? `tail -n 200 ${project.logSources[0].value}`
+    : `cd ${project.rootPath} && ls -la`;
+  let reason = previewText(
+    locale,
+    "先看最新一段只读信号，确认问题是否还在持续出现。",
+    "Start with the freshest readonly signal to confirm whether the issue is still active.",
+  );
+
+  if (prefersHealthCheck && project.healthCheckCommand) {
+    command = project.healthCheckCommand;
+    reason = previewText(
+      locale,
+      "先跑项目已配置的健康检查，再决定是否继续深挖。",
+      "Run the project's configured health check before going deeper.",
+    );
+  } else if (prefersLogs && project.logSources[0]) {
+    reason = previewText(
+      locale,
+      "先查看最新日志窗口，确认错误模式和时间点。",
+      "Inspect the newest log window first to confirm the error pattern and timing.",
+    );
+  }
+
+  return {
     id: createId("cmd"),
-    command: project.logSources[0]
-      ? `tail -n 200 ${project.logSources[0].value}`
-      : `cd ${project.rootPath} && ls -la`,
-    reason: timeoutDetected
-      ? "Inspect the most recent error burst before checking downstream dependencies."
-      : "Inspect the latest log window for fresh anomalies.",
+    command,
+    reason,
     risk: CommandRisk.Safe,
     requiresConfirmation: true,
     blocked: false,
   };
+}
 
-  const messages: AIMessage[] = [
-    {
-      id: createId("msg"),
-      speaker: "system",
-      content: `Context pack ready for ${project.name}. Provider route: ${providerLabel}.`,
-      createdAt: Date.now(),
-    },
-    {
-      id: createId("msg"),
-      speaker: "assistant",
-      content: timeoutDetected
-        ? "The strongest signal is an upstream timeout pattern. Check log spikes, worker retries, and any dependent database latency next."
-        : "No hard failure signature was detected. I would inspect the latest logs and the current deployment footprint first.",
-      createdAt: Date.now(),
-    },
-  ];
+function buildPreviewAssistantMessage(
+  _project: Project,
+  context: AiContextPack,
+  history: AIMessage[],
+  locale: string,
+  prompt?: string,
+): string {
+  const warningSource = [...context.logSnippet, ...context.terminalSnippet].join(" ").toLowerCase();
+  const timeoutDetected = warningSource.includes("timeout") || warningSource.includes("error");
+  const nextPrompt = prompt?.trim().toLowerCase() ?? "";
+  const lastAssistant = [...history].reverse().find((message) => message.speaker === "assistant");
 
-  return { messages, suggestion };
+  if (!nextPrompt) {
+    return timeoutDetected
+      ? previewText(
+          locale,
+          "我先看到的是超时或错误信号。先确认最近一波日志、重试次数和依赖服务延迟，再决定是否需要动服务。",
+          "The strongest signal is a timeout or error pattern. I would confirm the latest log burst, retry behavior, and dependency latency before touching the service.",
+        )
+      : previewText(
+          locale,
+          "当前没有看到单点硬故障特征。我会先核对最新日志窗口和当前部署足迹，再继续缩小范围。",
+          "I do not see a single hard-failure signature yet. I would check the latest log window and the current deployment footprint before narrowing further.",
+        );
+  }
+
+  if (/restart|reboot|rollback|重启|回滚/.test(nextPrompt)) {
+    return previewText(
+      locale,
+      "我不建议现在先重启。先把最新日志、健康检查和依赖状态确认清楚，再决定是否需要变更运行态。",
+      "I would not restart yet. Confirm the latest logs, health checks, and dependency status first, then decide whether a runtime change is justified.",
+    );
+  }
+
+  if (/why|原因|为什么/.test(nextPrompt)) {
+    return timeoutDetected
+      ? previewText(
+          locale,
+          "因为上下文里已经出现 timeout 或 error 线索，而且这类问题通常先要确认爆发时间点和依赖延迟，直接操作服务风险更高。",
+          "Because the current context already contains timeout or error clues, and those incidents usually need timing and dependency checks before any service change.",
+        )
+      : previewText(
+          locale,
+          "因为当前信号还不够集中。我更倾向先补一轮只读检查，把范围收窄到日志、部署或依赖中的某一层。",
+          "Because the signal is still diffuse. I would add another readonly check first and narrow the scope to logs, deployment state, or dependencies.",
+        );
+  }
+
+  if (/log|日志|trace|error|报错/.test(nextPrompt)) {
+    return previewText(
+      locale,
+      "这一轮最值得追的是最新日志窗口。先确认错误是否持续、是否集中在同一个组件，以及时间点是否和最近变更重合。",
+      "The best next move is the latest log window. Confirm whether the errors are still active, whether they cluster around one component, and whether the timing lines up with recent changes.",
+    );
+  }
+
+  if (/database|mysql|redis|postgres|数据库/.test(nextPrompt)) {
+    return timeoutDetected
+      ? previewText(
+          locale,
+          "可以把数据库作为下一层排查对象，但我会先用日志确认是否已经出现连接、超时或重试放大的证据。",
+          "The database is a valid next layer to inspect, but I would first verify that the logs actually show connection, timeout, or retry amplification evidence.",
+        )
+      : previewText(
+          locale,
+          "当前上下文还没有直接指向数据库故障。我会先补日志和健康检查，再决定要不要继续查数据库侧。",
+          "The current context does not point directly at a database failure yet. I would extend the log and health-check pass before drilling into the database side.",
+        );
+  }
+
+  return previewText(
+    locale,
+    lastAssistant
+      ? `我会沿着上一轮结论继续收缩范围，先做一条安全的只读检查，再根据新结果决定下一步。`
+      : `我会继续沿着当前信号追下去，先做一条安全的只读检查，再根据结果决定下一步。`,
+    lastAssistant
+      ? "I would continue from the last finding and use one safe readonly check to narrow the scope before taking the next step."
+      : "I would keep following the current signal and use one safe readonly check to narrow the scope before taking the next step.",
+  );
+}
+
+function buildAiResponse(
+  project: Project,
+  context: AiContextPack,
+  locale: string,
+  history: AIMessage[],
+  prompt?: string,
+): AiConversationResponse {
+  const suggestion = buildPreviewSuggestion(project, context, locale, prompt);
+
+  return {
+    messages: [
+      {
+        id: createId("msg"),
+        speaker: "assistant",
+        content: buildPreviewAssistantMessage(project, context, history, locale, prompt),
+        createdAt: Date.now(),
+      },
+    ],
+    suggestion,
+  };
+}
+
+async function buildAiPreviewResponse(
+  projectId: string,
+  context: AiContextPack,
+  history: AIMessage[],
+  prompt?: string,
+): Promise<AiConversationResponse> {
+  const config = readConfig();
+  const project = config.projects.find((item) => item.id === projectId);
+  if (!project) {
+    throw new Error("Project not found.");
+  }
+
+  const locale = config.settings.locale ?? Locale.ZhCN;
+
+  return buildAiResponse(project, context, locale, history, prompt);
 }
 
 async function upsertServer(draft: ServerDraft): Promise<Server> {
@@ -722,21 +850,17 @@ export const localBackend = {
     };
   },
 
-  async analyzeProject(projectId: string, context: AiContextPack): Promise<{
-    messages: AIMessage[];
-    suggestion: AiCommandSuggestion;
-  }> {
-    const config = readConfig();
-    const project = config.projects.find((item) => item.id === projectId);
-    if (!project) {
-      throw new Error("Project not found.");
-    }
+  async analyzeProject(projectId: string, context: AiContextPack): Promise<AiConversationResponse> {
+    return buildAiPreviewResponse(projectId, context, []);
+  },
 
-    const provider =
-      config.providers.find((item) => item.id === config.settings.defaultAiProviderId) ??
-      config.providers.find((item) => item.enabled && Boolean(getCredential(item.apiKeyRef)));
-
-    return buildAiMessages(project, context, provider);
+  async sendAiFollowup(
+    projectId: string,
+    context: AiContextPack,
+    history: AIMessage[],
+    prompt: string,
+  ): Promise<AiConversationResponse> {
+    return buildAiPreviewResponse(projectId, context, history, prompt);
   },
 
   async confirmSuggestedCommand(

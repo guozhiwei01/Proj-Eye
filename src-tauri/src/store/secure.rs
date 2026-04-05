@@ -19,6 +19,7 @@ use tauri::{AppHandle, Manager};
 const ITERATIONS: u32 = 200_000;
 const KEYRING_SERVICE: &str = "com.projeye.desktop.credentials";
 const KEYRING_PROBE_REF: &str = "__proj_eye_probe__";
+const KEYRING_PROBE_SECRET: &str = "__proj_eye_probe_secret__";
 
 #[derive(Default)]
 struct SecureRuntime {
@@ -184,12 +185,27 @@ fn keyring_entry(reference: &str) -> Result<Entry, String> {
         .map_err(|error| format!("Unable to create keyring entry for '{reference}': {error}"))
 }
 
-fn keyring_available() -> bool {
+fn keyring_readable() -> bool {
     let Ok(entry) = keyring_entry(KEYRING_PROBE_REF) else {
         return false;
     };
 
     matches!(entry.get_password(), Ok(_) | Err(KeyringError::NoEntry))
+}
+
+fn keyring_writable() -> bool {
+    let Ok(entry) = keyring_entry(KEYRING_PROBE_REF) else {
+        return false;
+    };
+
+    if entry.set_password(KEYRING_PROBE_SECRET).is_err() {
+        return false;
+    }
+
+    let readable = matches!(entry.get_password(), Ok(value) if value == KEYRING_PROBE_SECRET);
+    let cleanup = matches!(entry.delete_credential(), Ok(()) | Err(KeyringError::NoEntry));
+
+    readable && cleanup
 }
 
 fn inspect_keyring(reference: &str) -> Result<bool, String> {
@@ -305,7 +321,7 @@ fn delete_secret_from_fallback(app: &AppHandle, reference: &str) -> Result<(), S
 pub fn status(app: &AppHandle) -> Result<SecureStatus, String> {
     let fallback_initialized = read_vault_file(app)?.is_some();
 
-    if keyring_available() {
+    if keyring_writable() {
         let message = if fallback_initialized {
             "System keyring is active. The fallback vault remains available if native storage becomes unavailable.".to_string()
         } else {
@@ -346,7 +362,7 @@ pub fn status(app: &AppHandle) -> Result<SecureStatus, String> {
 }
 
 pub fn initialize_vault(app: &AppHandle, password: &str) -> Result<SecureStatus, String> {
-    if keyring_available() {
+    if keyring_writable() {
         return status(app);
     }
 
@@ -372,7 +388,7 @@ pub fn initialize_vault(app: &AppHandle, password: &str) -> Result<SecureStatus,
 }
 
 pub fn unlock_vault(app: &AppHandle, password: &str) -> Result<SecureStatus, String> {
-    if keyring_available() {
+    if keyring_writable() {
         return status(app);
     }
 
@@ -391,7 +407,7 @@ pub fn unlock_vault(app: &AppHandle, password: &str) -> Result<SecureStatus, Str
 }
 
 pub fn lock_vault(app: &AppHandle) -> Result<SecureStatus, String> {
-    if keyring_available() {
+    if keyring_writable() {
         return status(app);
     }
 
@@ -408,7 +424,7 @@ pub fn inspect_credential(reference: Option<String>) -> Result<bool, String> {
         return Ok(false);
     };
 
-    if keyring_available() {
+    if keyring_readable() {
         match inspect_keyring(&reference) {
             Ok(true) => return Ok(true),
             Ok(false) => {}
@@ -426,7 +442,7 @@ pub fn save_secret(
     label: &str,
     secret: &str,
 ) -> Result<(), String> {
-    if keyring_available() {
+    if keyring_writable() {
         match save_secret_to_keyring(reference, kind, label, secret) {
             Ok(()) => return Ok(()),
             Err(keyring_error) => {
@@ -445,7 +461,7 @@ pub fn save_secret(
 }
 
 pub fn delete_secret(app: &AppHandle, reference: &str) -> Result<(), String> {
-    if keyring_available() {
+    if keyring_readable() {
         let _ = delete_secret_from_keyring(reference);
     }
 
@@ -457,7 +473,7 @@ pub fn read_secret(reference: Option<String>) -> Result<Option<String>, String> 
         return Ok(None);
     };
 
-    if keyring_available() {
+    if keyring_readable() {
         match read_secret_from_keyring(&reference) {
             Ok(Some(secret)) => return Ok(Some(secret)),
             Ok(None) => {}

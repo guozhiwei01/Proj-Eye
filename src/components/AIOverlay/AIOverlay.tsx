@@ -1,7 +1,8 @@
+import { startTransition, useState } from "react";
 import { useI18n } from "../../lib/i18n";
 import { useAiStore } from "../../store/ai";
 import { usePanelsStore } from "../../store/panels";
-import type { AlertItem, DatabaseResource, Project, Server } from "../../types/models";
+import { AIStatus, type AlertItem, type DatabaseResource, type Project, type Server } from "../../types/models";
 import CommandConfirm from "./CommandConfirm";
 import ContextSummary from "./ContextSummary";
 import ConversationArea from "./ConversationArea";
@@ -17,14 +18,32 @@ interface AIOverlayProps {
 
 export default function AIOverlay({ project, server, databases, alert }: AIOverlayProps) {
   const { t } = useI18n();
+  const [prompt, setPrompt] = useState("");
   const isAiOpen = usePanelsStore((state) => state.isAiOpen);
   const toggleAiOverlay = usePanelsStore((state) => state.toggleAiOverlay);
   const projectMessages = useAiStore((state) => state.messagesByProject[project.id]);
   const suggestion = useAiStore((state) => state.suggestionsByProject[project.id] ?? null);
-  const status = useAiStore((state) => state.status);
+  const status = useAiStore((state) => state.statusByProject[project.id] ?? AIStatus.Ready);
   const analyze = useAiStore((state) => state.analyze);
+  const sendFollowup = useAiStore((state) => state.sendFollowup);
   const confirmSuggestion = useAiStore((state) => state.confirmSuggestion);
   const messages = projectMessages ?? EMPTY_MESSAGES;
+  const isBusy = status === AIStatus.Analyzing;
+
+  async function handleSendPrompt(): Promise<void> {
+    const nextPrompt = prompt.trim();
+    if (!nextPrompt || isBusy) {
+      return;
+    }
+
+    await sendFollowup(
+      project.id,
+      project.name,
+      databases.map((database) => `${database.name}:${database.type}`),
+      nextPrompt,
+    );
+    startTransition(() => setPrompt(""));
+  }
 
   return (
     <aside
@@ -50,6 +69,7 @@ export default function AIOverlay({ project, server, databases, alert }: AIOverl
                   databases.map((database) => `${database.name}:${database.type}`),
                 )
               }
+              disabled={isBusy}
               className="rounded-full border border-[var(--accent)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)] transition hover:bg-[var(--accent)]/10"
             >
               {t("ai.analyze")}
@@ -67,6 +87,43 @@ export default function AIOverlay({ project, server, databases, alert }: AIOverl
 
         <ContextSummary project={project} server={server} databases={databases} alert={alert} />
         <ConversationArea messages={messages} status={status} />
+        <section className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--bg1)] p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs uppercase tracking-[0.22em] text-[var(--text2)]">{t("ai.followUp")}</p>
+            <span className="text-[11px] text-[var(--text2)]">{t("ai.sendHint")}</span>
+          </div>
+
+          <form
+            className="mt-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleSendPrompt();
+            }}
+          >
+            <textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  void handleSendPrompt();
+                }
+              }}
+              placeholder={t("ai.askPlaceholder")}
+              rows={3}
+              className="w-full resize-none rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm leading-6 text-[var(--text0)] outline-none transition placeholder:text-[var(--text2)] focus:border-[var(--accent2)]"
+            />
+            <div className="mt-3 flex justify-end">
+              <button
+                type="submit"
+                disabled={isBusy || !prompt.trim()}
+                className="rounded-full border border-[var(--accent)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)] transition hover:bg-[var(--accent)]/10 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isBusy ? t("ai.sending") : t("ai.send")}
+              </button>
+            </div>
+          </form>
+        </section>
         <CommandConfirm suggestion={suggestion} onConfirm={() => void confirmSuggestion(project.id)} />
       </div>
     </aside>

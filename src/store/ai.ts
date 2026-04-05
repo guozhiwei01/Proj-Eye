@@ -1,5 +1,7 @@
 import { create } from "zustand";
-import { analyzeProject, confirmSuggestedCommand } from "../lib/backend";
+import { analyzeProject, confirmSuggestedCommand, sendAiFollowup } from "../lib/backend";
+import { localizeErrorMessage, translate } from "../lib/i18n";
+import { useAppStore } from "./app";
 import { useWorkspaceStore } from "./workspace";
 import {
   AIStatus,
@@ -7,14 +9,21 @@ import {
   type AIStatus as AIStatusValue,
   type AiCommandSuggestion,
   type AiContextPack,
+  type Locale,
 } from "../types/models";
 
 interface AIState {
-  status: AIStatusValue;
+  statusByProject: Record<string, AIStatusValue>;
   messagesByProject: Record<string, AIMessage[]>;
   suggestionsByProject: Record<string, AiCommandSuggestion | null>;
-  setStatus: (status: AIStatusValue) => void;
+  setStatus: (projectId: string, status: AIStatusValue) => void;
   analyze: (projectId: string, projectName: string, databaseSummary: string[]) => Promise<void>;
+  sendFollowup: (
+    projectId: string,
+    projectName: string,
+    databaseSummary: string[],
+    prompt: string,
+  ) => Promise<void>;
   confirmSuggestion: (projectId: string) => Promise<void>;
 }
 
@@ -36,20 +45,38 @@ function buildContext(projectId: string, projectName: string, databaseSummary: s
   };
 }
 
+function currentLocale(): Locale {
+  return useAppStore.getState().config.settings.locale;
+}
+
+function errorMessage(error: unknown, locale: Locale, fallbackKey: string): string {
+  const localized = localizeErrorMessage(locale, error);
+  return localized === "Unknown error" ? translate(locale, fallbackKey) : localized;
+}
+
 export const useAiStore = create<AIState>((set, get) => ({
-  status: AIStatus.Ready,
+  statusByProject: {},
   messagesByProject: {},
   suggestionsByProject: {},
 
-  setStatus: (status) => set({ status }),
+  setStatus: (projectId, status) =>
+    set((state) => ({
+      statusByProject: {
+        ...state.statusByProject,
+        [projectId]: status,
+      },
+    })),
 
   analyze: async (projectId, projectName, databaseSummary) => {
-    set({ status: AIStatus.Analyzing });
+    get().setStatus(projectId, AIStatus.Analyzing);
     try {
       const context = buildContext(projectId, projectName, databaseSummary);
       const response = await analyzeProject(projectId, context);
       set((state) => ({
-        status: AIStatus.Ready,
+        statusByProject: {
+          ...state.statusByProject,
+          [projectId]: AIStatus.Ready,
+        },
         messagesByProject: {
           ...state.messagesByProject,
           [projectId]: [...(state.messagesByProject[projectId] ?? []), ...response.messages],
@@ -60,8 +87,12 @@ export const useAiStore = create<AIState>((set, get) => ({
         },
       }));
     } catch (error) {
+      const locale = currentLocale();
       set((state) => ({
-        status: AIStatus.Error,
+        statusByProject: {
+          ...state.statusByProject,
+          [projectId]: AIStatus.Error,
+        },
         messagesByProject: {
           ...state.messagesByProject,
           [projectId]: [
@@ -69,8 +100,72 @@ export const useAiStore = create<AIState>((set, get) => ({
             {
               id: crypto.randomUUID(),
               speaker: "system",
-              content:
-                error instanceof Error ? error.message : "AI analysis could not be completed.",
+              content: errorMessage(error, locale, "ai.requestFailed"),
+              createdAt: Date.now(),
+            },
+          ],
+        },
+      }));
+    }
+  },
+
+  sendFollowup: async (projectId, projectName, databaseSummary, prompt) => {
+    const nextPrompt = prompt.trim();
+    if (!nextPrompt) {
+      return;
+    }
+
+    const context = buildContext(projectId, projectName, databaseSummary);
+    const history = get().messagesByProject[projectId] ?? [];
+    const userMessage: AIMessage = {
+      id: crypto.randomUUID(),
+      speaker: "user",
+      content: nextPrompt,
+      createdAt: Date.now(),
+    };
+
+    set((state) => ({
+      statusByProject: {
+        ...state.statusByProject,
+        [projectId]: AIStatus.Analyzing,
+      },
+      messagesByProject: {
+        ...state.messagesByProject,
+        [projectId]: [...(state.messagesByProject[projectId] ?? []), userMessage],
+      },
+    }));
+
+    try {
+      const response = await sendAiFollowup(projectId, context, history, nextPrompt);
+      set((state) => ({
+        statusByProject: {
+          ...state.statusByProject,
+          [projectId]: AIStatus.Ready,
+        },
+        messagesByProject: {
+          ...state.messagesByProject,
+          [projectId]: [...(state.messagesByProject[projectId] ?? []), ...response.messages],
+        },
+        suggestionsByProject: {
+          ...state.suggestionsByProject,
+          [projectId]: response.suggestion,
+        },
+      }));
+    } catch (error) {
+      const locale = currentLocale();
+      set((state) => ({
+        statusByProject: {
+          ...state.statusByProject,
+          [projectId]: AIStatus.Error,
+        },
+        messagesByProject: {
+          ...state.messagesByProject,
+          [projectId]: [
+            ...(state.messagesByProject[projectId] ?? []),
+            {
+              id: crypto.randomUUID(),
+              speaker: "system",
+              content: errorMessage(error, locale, "ai.requestFailed"),
               createdAt: Date.now(),
             },
           ],
@@ -91,8 +186,12 @@ export const useAiStore = create<AIState>((set, get) => ({
       const payload = await confirmSuggestedCommand(projectId, activeTab?.sessionId, suggestion);
       workspace.upsertSession(payload.session);
     } catch (error) {
+      const locale = currentLocale();
       set((state) => ({
-        status: AIStatus.Error,
+        statusByProject: {
+          ...state.statusByProject,
+          [projectId]: AIStatus.Error,
+        },
         messagesByProject: {
           ...state.messagesByProject,
           [projectId]: [
@@ -100,8 +199,7 @@ export const useAiStore = create<AIState>((set, get) => ({
             {
               id: crypto.randomUUID(),
               speaker: "system",
-              content:
-                error instanceof Error ? error.message : "The suggested command could not be executed.",
+              content: errorMessage(error, locale, "ai.commandFailed"),
               createdAt: Date.now(),
             },
           ],

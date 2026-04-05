@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useI18n } from "../../lib/i18n";
+import { localizeErrorMessage, useI18n } from "../../lib/i18n";
 import { hasAnomalySignal } from "../../lib/detector";
 import { useWorkspaceStore } from "../../store/workspace";
 import type { AlertItem, Project } from "../../types/models";
@@ -10,7 +10,7 @@ interface LogPanelProps {
 }
 
 export default function LogPanel({ project, alert }: LogPanelProps) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const refreshLogs = useWorkspaceStore((state) => state.refreshLogs);
   const logs = useWorkspaceStore((state) => state.logs)
     .filter((entry) => entry.projectId === project.id)
@@ -38,7 +38,7 @@ export default function LogPanel({ project, alert }: LogPanelProps) {
               setError(null);
               void refreshLogs(project.id)
                 .catch((nextError) => {
-                  setError(nextError instanceof Error ? nextError.message : t("logs.refreshError"));
+                  setError(localizeErrorMessage(locale, nextError, "logs.refreshError"));
                 })
                 .finally(() => setBusy(false));
             }}

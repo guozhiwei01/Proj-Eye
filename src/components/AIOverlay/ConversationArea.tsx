@@ -26,7 +26,7 @@ export default function ConversationArea({ messages, status }: ConversationAreaP
         </span>
       </div>
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 max-h-[24rem] space-y-3 overflow-y-auto pr-1">
         {messages.length === 0 ? (
           <div className="rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text1)]">
             {t("ai.noAnalysis")}
@@ -43,6 +43,13 @@ export default function ConversationArea({ messages, status }: ConversationAreaP
                     : "border border-[var(--border)] bg-[var(--bg0)] text-[var(--text1)]"
               }`}
             >
+              <p className="mb-2 text-[10px] uppercase tracking-[0.22em] text-[var(--text2)]">
+                {message.speaker === "assistant"
+                  ? t("ai.assistant")
+                  : message.speaker === "user"
+                    ? t("ai.user")
+                    : t("ai.system")}
+              </p>
               {message.content}
             </div>
           ))

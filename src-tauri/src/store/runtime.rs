@@ -100,6 +100,18 @@ struct CommandExecution {
     exit_status: Option<i32>,
 }
 
+#[derive(Clone)]
+struct ProviderChatMessage {
+    role: String,
+    content: String,
+}
+
+struct AiModelReply {
+    answer: String,
+    suggested_command: Option<String>,
+    suggestion_reason: Option<String>,
+}
+
 fn runtime_state() -> &'static Mutex<RuntimeState> {
     static INSTANCE: OnceLock<Mutex<RuntimeState>> = OnceLock::new();
     INSTANCE.get_or_init(|| Mutex::new(RuntimeState::default()))
@@ -114,6 +126,14 @@ fn now_ms() -> u64 {
 
 fn create_id(prefix: &str) -> String {
     format!("{prefix}-{}", Uuid::new_v4())
+}
+
+fn localized_text(locale: &str, zh: &str, en: &str) -> String {
+    if locale == "zh-CN" {
+        zh.to_string()
+    } else {
+        en.to_string()
+    }
 }
 
 fn object(value: &Value) -> Result<&Map<String, Value>, String> {
@@ -898,7 +918,12 @@ fn classify_command_risk(command: &str) -> (&'static str, bool) {
     ("safe", false)
 }
 
-fn build_ai_suggestion(project: &ProjectConfigData, server: &ServerConfigData, context: &Map<String, Value>) -> Value {
+fn build_ai_suggestion(
+    project: &ProjectConfigData,
+    server: &ServerConfigData,
+    context: &Map<String, Value>,
+    locale: &str,
+) -> Value {
     let warning_source = context
         .get("logSnippet")
         .and_then(Value::as_array)
@@ -932,16 +957,37 @@ fn build_ai_suggestion(project: &ProjectConfigData, server: &ServerConfigData, c
         "id": create_id("cmd"),
         "command": suggested_command,
         "reason": if warning_source.contains("timeout") {
-            "Inspect the freshest log window before touching downstream services."
+            localized_text(
+                locale,
+                "先看最新一波错误日志，再判断是否要动下游依赖。",
+                "Inspect the freshest log window before touching downstream services.",
+            )
         } else if project.health_check_command.is_some() {
-            "Run the configured health check before making changes."
+            localized_text(
+                locale,
+                "先跑已配置的健康检查，再决定是否需要变更。",
+                "Run the configured health check before making changes.",
+            )
         } else {
-            "Start with a safe inspection command in the project workspace."
+            localized_text(
+                locale,
+                "先用一条安全的只读命令检查项目当前状态。",
+                "Start with a safe inspection command in the project workspace.",
+            )
         },
         "risk": risk,
         "requiresConfirmation": true,
         "blocked": blocked
     })
+}
+
+fn resolve_ui_locale(config: &Value) -> &str {
+    config
+        .get("settings")
+        .and_then(Value::as_object)
+        .and_then(|settings| settings.get("locale"))
+        .and_then(Value::as_str)
+        .unwrap_or("zh-CN")
 }
 
 fn resolve_provider(config: &Value) -> Result<ProviderConfigData, String> {
@@ -1040,7 +1086,11 @@ fn parse_gemini_content(response: &Value) -> Option<String> {
         .filter(|text| !text.trim().is_empty())
 }
 
-fn request_provider_analysis(provider: &ProviderConfigData, prompt: &str) -> Result<String, String> {
+fn request_provider_chat(
+    provider: &ProviderConfigData,
+    system_prompt: &str,
+    messages: &[ProviderChatMessage],
+) -> Result<String, String> {
     let api_key = secure::read_secret(provider.api_key_ref.clone())?
         .ok_or_else(|| format!("Provider '{}' is missing an API key.", provider.name))?;
     let client = Client::builder()
@@ -1055,22 +1105,24 @@ fn request_provider_analysis(provider: &ProviderConfigData, prompt: &str) -> Res
                 "chat/completions",
                 "https://api.openai.com/v1/chat/completions",
             );
+            let request_messages = std::iter::once(json!({
+                "role": "system",
+                "content": system_prompt
+            }))
+            .chain(messages.iter().map(|message| {
+                json!({
+                    "role": message.role.clone(),
+                    "content": message.content.clone()
+                })
+            }))
+            .collect::<Vec<_>>();
             let response = client
                 .post(endpoint)
                 .bearer_auth(api_key)
                 .json(&json!({
                     "model": provider.model,
                     "temperature": 0.2,
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are Proj-Eye, a concise operations assistant. Summarize the likely issue, evidence, and safest next check."
-                        },
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
+                    "messages": request_messages
                 }))
                 .send()
                 .and_then(|response| response.error_for_status())
@@ -1088,6 +1140,15 @@ fn request_provider_analysis(provider: &ProviderConfigData, prompt: &str) -> Res
                 "v1/messages",
                 "https://api.anthropic.com/v1/messages",
             );
+            let request_messages = messages
+                .iter()
+                .map(|message| {
+                    json!({
+                        "role": message.role.clone(),
+                        "content": message.content.clone()
+                    })
+                })
+                .collect::<Vec<_>>();
             let response = client
                 .post(endpoint)
                 .header("x-api-key", api_key)
@@ -1095,13 +1156,8 @@ fn request_provider_analysis(provider: &ProviderConfigData, prompt: &str) -> Res
                 .json(&json!({
                     "model": provider.model,
                     "max_tokens": 512,
-                    "system": "You are Proj-Eye, a concise operations assistant. Summarize the likely issue, evidence, and safest next check.",
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt
-                        }
-                    ]
+                    "system": system_prompt,
+                    "messages": request_messages
                 }))
                 .send()
                 .and_then(|response| response.error_for_status())
@@ -1121,20 +1177,31 @@ fn request_provider_analysis(provider: &ProviderConfigData, prompt: &str) -> Res
                     provider.model
                 ),
             );
+            let contents = messages
+                .iter()
+                .map(|message| {
+                    json!({
+                        "role": if message.role == "assistant" { "model" } else { "user" },
+                        "parts": [
+                            {
+                                "text": message.content.clone()
+                            }
+                        ]
+                    })
+                })
+                .collect::<Vec<_>>();
             let response = client
                 .post(endpoint)
                 .header("x-goog-api-key", api_key)
                 .json(&json!({
-                    "contents": [
-                        {
-                            "role": "user",
-                            "parts": [
-                                {
-                                    "text": prompt
-                                }
-                            ]
-                        }
-                    ]
+                    "systemInstruction": {
+                        "parts": [
+                            {
+                                "text": system_prompt
+                            }
+                        ]
+                    },
+                    "contents": contents
                 }))
                 .send()
                 .and_then(|response| response.error_for_status())
@@ -1149,7 +1216,122 @@ fn request_provider_analysis(provider: &ProviderConfigData, prompt: &str) -> Res
     }
 }
 
-fn build_ai_prompt(project: &ProjectConfigData, server: &ServerConfigData, context: &Map<String, Value>) -> String {
+fn extract_json_object(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let mut start = None;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+
+    for (index, ch) in trimmed.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+                continue;
+            }
+
+            match ch {
+                '\\' => escaped = true,
+                '"' => in_string = false,
+                _ => {}
+            }
+            continue;
+        }
+
+        match ch {
+            '"' => in_string = true,
+            '{' => {
+                if start.is_none() {
+                    start = Some(index);
+                }
+                depth += 1;
+            }
+            '}' => {
+                if depth == 0 {
+                    continue;
+                }
+                depth -= 1;
+                if depth == 0 {
+                    let begin = start?;
+                    return Some(trimmed[begin..index + ch.len_utf8()].to_string());
+                }
+            }
+            _ => {}
+        }
+    }
+
+    None
+}
+
+fn value_at_path<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Value> {
+    let mut current = value;
+    for segment in path {
+        current = current.get(*segment)?;
+    }
+    Some(current)
+}
+
+fn first_string_value(value: &Value, paths: &[&[&str]]) -> Option<String> {
+    paths.iter().find_map(|path| {
+        value_at_path(value, path)
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|text| !text.is_empty())
+            .map(ToString::to_string)
+    })
+}
+
+fn parse_ai_model_reply(text: &str) -> Option<AiModelReply> {
+    let json_candidate = extract_json_object(text)?;
+    let value = serde_json::from_str::<Value>(&json_candidate).ok()?;
+    let answer = first_string_value(&value, &[&["answer"], &["analysis"], &["summary"]])?;
+    let suggested_command = first_string_value(
+        &value,
+        &[
+            &["suggestedCommand"],
+            &["command"],
+            &["nextCommand"],
+            &["suggestion", "command"],
+        ],
+    );
+    let suggestion_reason = first_string_value(
+        &value,
+        &[
+            &["suggestionReason"],
+            &["reason"],
+            &["commandReason"],
+            &["suggestion", "reason"],
+        ],
+    );
+
+    Some(AiModelReply {
+        answer,
+        suggested_command,
+        suggestion_reason,
+    })
+}
+
+fn build_ai_system_prompt(locale: &str) -> String {
+    let target_language = if locale == "zh-CN" {
+        "Simplified Chinese"
+    } else {
+        "English"
+    };
+
+    format!(
+        "You are Proj-Eye, a concise operations assistant. Reply in {target_language}. Return only valid JSON with keys answer, suggestedCommand, and suggestionReason. answer must be concise and actionable. suggestedCommand must be a single non-destructive inspection command. If unsure, return the safest readonly inspection command available. Do not wrap the JSON in markdown fences."
+    )
+}
+
+fn build_ai_context_message(
+    project: &ProjectConfigData,
+    server: &ServerConfigData,
+    context: &Map<String, Value>,
+) -> String {
     let log_lines = context
         .get("logSnippet")
         .and_then(Value::as_array)
@@ -1185,7 +1367,7 @@ fn build_ai_prompt(project: &ProjectConfigData, server: &ServerConfigData, conte
         .unwrap_or_default();
 
     format!(
-        "Project: {}\nServer: {}@{}:{} ({})\nRoot path: {}\nDatabases: {}\n\nRecent terminal:\n{}\n\nRecent logs:\n{}\n\nRespond in three short paragraphs: likely issue, supporting evidence, safest next check.",
+        "Current project context\nProject: {}\nServer: {}@{}:{} ({})\nRoot path: {}\nDatabases: {}\n\nRecent terminal:\n{}\n\nRecent logs:\n{}",
         project.name,
         server.username,
         server.host,
@@ -1208,6 +1390,172 @@ fn build_ai_prompt(project: &ProjectConfigData, server: &ServerConfigData, conte
             log_lines
         }
     )
+}
+
+fn build_ai_turn_request(locale: &str, prompt: Option<&str>) -> String {
+    match prompt.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(user_prompt) => format!(
+            "{}\n\n{}",
+            localized_text(
+                locale,
+                "继续沿着这条链路排查。以下是用户的追加问题：",
+                "Continue the same investigation. Here is the user's follow-up question:",
+            ),
+            user_prompt
+        ),
+        None => localized_text(
+            locale,
+            "请先做一轮综合排查：总结最可能的问题、关键证据，以及下一步最安全的检查命令。",
+            "Start a fresh triage pass. Summarize the most likely issue, the strongest evidence, and the safest next inspection command.",
+        ),
+    }
+}
+
+fn parse_ai_history(history: Option<&Value>) -> Vec<ProviderChatMessage> {
+    let mut messages = history
+        .and_then(Value::as_array)
+        .map(|items| {
+            items
+                .iter()
+                .filter_map(|item| {
+                    let payload = item.as_object()?;
+                    let role = match payload.get("speaker").and_then(Value::as_str)? {
+                        "user" => "user",
+                        "assistant" => "assistant",
+                        _ => return None,
+                    };
+                    let content = payload.get("content").and_then(Value::as_str)?.trim();
+                    if content.is_empty() {
+                        return None;
+                    }
+
+                    Some(ProviderChatMessage {
+                        role: role.to_string(),
+                        content: content.to_string(),
+                    })
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+
+    if messages.len() > 8 {
+        messages = messages.split_off(messages.len() - 8);
+    }
+
+    messages
+}
+
+fn finalize_ai_suggestion(
+    project: &ProjectConfigData,
+    server: &ServerConfigData,
+    context: &Map<String, Value>,
+    locale: &str,
+    suggested_command: Option<String>,
+    suggestion_reason: Option<String>,
+) -> Value {
+    let fallback = build_ai_suggestion(project, server, context, locale);
+    let Some(command) = suggested_command
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+    else {
+        return fallback;
+    };
+
+    let (risk, blocked) = classify_command_risk(&command);
+    if blocked {
+        return fallback;
+    }
+
+    json!({
+        "id": create_id("cmd"),
+        "command": command,
+        "reason": suggestion_reason
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| localized_text(
+                locale,
+                "先执行一条安全的只读检查，再根据结果继续缩小范围。",
+                "Run one safe readonly inspection command, then narrow the scope with the result.",
+            )),
+        "risk": risk,
+        "requiresConfirmation": true,
+        "blocked": false
+    })
+}
+
+fn build_ai_round_payload(
+    app: &AppHandle,
+    project_id: &str,
+    context: Value,
+    history: Option<Value>,
+    prompt: Option<&str>,
+    event_kind: &str,
+) -> Result<Value, String> {
+    let (config, project, server) = load_project_context(app, project_id)?;
+    let context_object = object(&context)?;
+    let locale = resolve_ui_locale(&config);
+    let provider = resolve_provider(&config)?;
+    let system_prompt = build_ai_system_prompt(locale);
+    let mut messages = vec![ProviderChatMessage {
+        role: "user".to_string(),
+        content: build_ai_context_message(&project, &server, context_object),
+    }];
+    messages.extend(parse_ai_history(history.as_ref()));
+    messages.push(ProviderChatMessage {
+        role: "user".to_string(),
+        content: build_ai_turn_request(locale, prompt),
+    });
+
+    let raw_response = request_provider_chat(&provider, &system_prompt, &messages)?;
+    let parsed = parse_ai_model_reply(&raw_response);
+    let assistant_content = parsed
+        .as_ref()
+        .map(|reply| reply.answer.trim().to_string())
+        .filter(|text| !text.is_empty())
+        .unwrap_or_else(|| {
+            let trimmed = raw_response.trim();
+            if trimmed.is_empty() {
+                localized_text(
+                    locale,
+                    "当前没有拿到可用分析结果，先执行建议命令补一轮信号。",
+                    "No usable analysis came back yet. Run the suggested inspection command first and retry.",
+                )
+            } else {
+                trimmed.to_string()
+            }
+        });
+    let suggestion = finalize_ai_suggestion(
+        &project,
+        &server,
+        context_object,
+        locale,
+        parsed.as_ref().and_then(|reply| reply.suggested_command.clone()),
+        parsed.as_ref().and_then(|reply| reply.suggestion_reason.clone()),
+    );
+
+    let payload = json!({
+        "messages": [
+            {
+                "id": create_id("msg"),
+                "speaker": "assistant",
+                "content": assistant_content,
+                "createdAt": now_ms()
+            }
+        ],
+        "suggestion": suggestion
+    });
+
+    emit_runtime_event(
+        app,
+        AI_EVENT,
+        json!({
+            "kind": event_kind,
+            "projectId": project_id,
+            "payload": payload
+        }),
+    );
+
+    Ok(payload)
 }
 
 fn execute_command_for_session(
@@ -1480,42 +1828,29 @@ pub fn run_database_query(
 }
 
 pub fn analyze_project(app: &AppHandle, project_id: &str, context: Value) -> Result<Value, String> {
-    let (config, project, server) = load_project_context(app, project_id)?;
-    let context_object = object(&context)?;
-    let provider = resolve_provider(&config)?;
-    let prompt = build_ai_prompt(&project, &server, context_object);
-    let assistant_message = request_provider_analysis(&provider, &prompt)?;
-    let suggestion = build_ai_suggestion(&project, &server, context_object);
+    build_ai_round_payload(app, project_id, context, None, None, "analysis")
+}
 
-    let payload = json!({
-        "messages": [
-            {
-                "id": create_id("msg"),
-                "speaker": "system",
-                "content": format!("Context pack routed through {} / {}.", provider.name, provider.model),
-                "createdAt": now_ms()
-            },
-            {
-                "id": create_id("msg"),
-                "speaker": "assistant",
-                "content": assistant_message,
-                "createdAt": now_ms()
-            }
-        ],
-        "suggestion": suggestion
-    });
+pub fn send_ai_followup(
+    app: &AppHandle,
+    project_id: &str,
+    context: Value,
+    history: Value,
+    prompt: &str,
+) -> Result<Value, String> {
+    let trimmed = prompt.trim();
+    if trimmed.is_empty() {
+        return Err("AI follow-up prompt cannot be empty.".to_string());
+    }
 
-    emit_runtime_event(
+    build_ai_round_payload(
         app,
-        AI_EVENT,
-        json!({
-            "kind": "analysis",
-            "projectId": project_id,
-            "payload": payload
-        }),
-    );
-
-    Ok(payload)
+        project_id,
+        context,
+        Some(history),
+        Some(trimmed),
+        "follow-up",
+    )
 }
 
 pub fn confirm_suggested_command(
@@ -1569,9 +1904,13 @@ pub fn validate_provider(app: &AppHandle, provider_id: &str) -> Result<Value, St
         }));
     }
 
-    let response = request_provider_analysis(
+    let response = request_provider_chat(
         &provider,
-        "Reply with a short readiness acknowledgement for an operations assistant health check.",
+        "You are Proj-Eye. Reply with a short readiness acknowledgement for an operations assistant health check.",
+        &[ProviderChatMessage {
+            role: "user".to_string(),
+            content: "Reply with a short readiness acknowledgement for an operations assistant health check.".to_string(),
+        }],
     )?;
 
     Ok(json!({

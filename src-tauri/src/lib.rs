@@ -29,6 +29,7 @@ pub fn run() {
             commands::logs_refresh_project,
             commands::database_run_query,
             commands::ai_analyze_project,
+            commands::ai_send_followup,
             commands::ai_confirm_suggested_command,
             commands::ai_validate_provider
         ])

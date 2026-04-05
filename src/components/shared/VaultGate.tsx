@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { secureStoreMessage, useI18n } from "../../lib/i18n";
+import { localizeErrorMessage, secureStoreMessage, useI18n } from "../../lib/i18n";
 import { useAppStore } from "../../store/app";
 
 export default function VaultGate() {
@@ -24,7 +24,7 @@ export default function VaultGate() {
       }
       setPassword("");
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : t("vault.error"));
+      setError(localizeErrorMessage(locale, nextError, "vault.error"));
     } finally {
       setBusy(false);
     }

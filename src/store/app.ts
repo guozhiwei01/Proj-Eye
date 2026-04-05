@@ -5,6 +5,7 @@ import {
   deleteProject as deleteProjectRecord,
   deleteProvider as deleteProviderRecord,
   deleteServer as deleteServerRecord,
+  getSecureStatus,
   initializeMasterPassword,
   lockSecureStore,
   refreshConfig,
@@ -188,9 +189,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   saveServer: async (draft) => {
-    const server = await persistServer(draft);
-    await get().refresh();
-    return server;
+    try {
+      const server = await persistServer(draft);
+      await get().refresh();
+      return server;
+    } catch (error) {
+      try {
+        const secureStatus = await getSecureStatus();
+        set({ secureStatus });
+      } catch {
+        // Keep the original save error as the primary failure signal.
+      }
+      throw error;
+    }
   },
 
   deleteServer: async (serverId) => {
@@ -199,9 +210,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   saveDatabase: async (draft) => {
-    const database = await persistDatabase(draft);
-    await get().refresh();
-    return database;
+    try {
+      const database = await persistDatabase(draft);
+      await get().refresh();
+      return database;
+    } catch (error) {
+      try {
+        const secureStatus = await getSecureStatus();
+        set({ secureStatus });
+      } catch {
+        // Keep the original save error as the primary failure signal.
+      }
+      throw error;
+    }
   },
 
   deleteDatabase: async (databaseId) => {
@@ -222,9 +243,19 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   saveProvider: async (draft) => {
-    const provider = await persistProvider(draft);
-    await get().refresh();
-    return provider;
+    try {
+      const provider = await persistProvider(draft);
+      await get().refresh();
+      return provider;
+    } catch (error) {
+      try {
+        const secureStatus = await getSecureStatus();
+        set({ secureStatus });
+      } catch {
+        // Keep the original save error as the primary failure signal.
+      }
+      throw error;
+    }
   },
 
   deleteProvider: async (providerId) => {

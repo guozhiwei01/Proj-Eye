@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import type {
   AIMessage,
   AiCommandSuggestion,
+  AiConversationResponse,
   AiContextPack,
   AppBootstrapState,
   AppConfigBundle,
@@ -280,12 +281,23 @@ export async function runDatabaseQuery(databaseId: string, statement: string): P
   );
 }
 
-export async function analyzeProject(projectId: string, context: AiContextPack): Promise<{
-  messages: AIMessage[];
-  suggestion: AiCommandSuggestion;
-}> {
+export async function analyzeProject(
+  projectId: string,
+  context: AiContextPack,
+): Promise<AiConversationResponse> {
   return withBackend("ai_analyze_project", { projectId, context }, () =>
     localBackend.analyzeProject(projectId, context),
+  );
+}
+
+export async function sendAiFollowup(
+  projectId: string,
+  context: AiContextPack,
+  history: AIMessage[],
+  prompt: string,
+): Promise<AiConversationResponse> {
+  return withBackend("ai_send_followup", { projectId, context, history, prompt }, () =>
+    localBackend.sendAiFollowup(projectId, context, history, prompt),
   );
 }
 
