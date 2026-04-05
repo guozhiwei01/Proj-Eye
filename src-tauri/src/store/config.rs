@@ -380,7 +380,10 @@ pub fn save_project(app: &AppHandle, draft: Value) -> Result<Value, String> {
         "lastAccessedAt": value_or(existing, "lastAccessedAt", json!(now_ms())),
         "health": value_or(existing, "health", json!("healthy")),
         "recentIssue": value_or(existing, "recentIssue", Value::Null),
-        "extra": value_or(existing, "extra", json!({}))
+        "extra": draft_object
+            .get("extra")
+            .cloned()
+            .unwrap_or_else(|| value_or(existing, "extra", json!({})))
     });
 
     let projects = array_mut(&mut config, "projects")?;

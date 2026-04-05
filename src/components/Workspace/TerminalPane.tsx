@@ -34,14 +34,14 @@ export default function TerminalPane({
       : [`cd ${project.rootPath}`, t("workspace.awaitingSession")];
 
   return (
-    <div className="rounded-[2rem] border border-[var(--border)] bg-[linear-gradient(180deg,var(--bg1),var(--bg0))] p-4 shadow-[0_18px_90px_rgba(0,0,0,0.2)]">
-      <div className="flex items-center justify-between border-b border-[var(--border)] pb-3">
+    <div className="flex h-full flex-col rounded-[10px] border border-white/8 bg-[#101010]">
+      <div className="flex items-center justify-between border-b border-white/8 px-4 py-3">
         <div className="flex items-center gap-2" role="presentation" aria-hidden="true">
           <span className="h-3 w-3 rounded-full bg-[var(--red)]" />
           <span className="h-3 w-3 rounded-full bg-[var(--yellow)]" />
           <span className="h-3 w-3 rounded-full bg-[var(--accent)]" />
         </div>
-        <p className="text-xs uppercase tracking-[0.24em] text-[var(--text2)]">
+        <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">
           {t("workspace.metrics", {
             cpu: metrics.cpu,
             memory: metrics.memory,
@@ -54,7 +54,7 @@ export default function TerminalPane({
         aria-label={t("workspace.remoteCommand")}
         aria-live="polite"
         aria-atomic="false"
-        className="mt-4 overflow-x-auto text-sm leading-7 text-[var(--text1)]"
+        className="min-h-0 flex-1 overflow-auto px-4 py-4 font-mono text-[15px] leading-7 text-white/82"
       >
         {lines.map((line, index) => (
           <div
@@ -67,7 +67,7 @@ export default function TerminalPane({
       </pre>
 
       {alert ? (
-        <p className="mt-4 rounded-2xl border border-[var(--red)] bg-[rgba(239,71,111,0.08)] px-4 py-3 text-sm text-[var(--text0)]">
+        <p className="mx-4 mb-4 rounded-md border border-[var(--red)]/50 bg-[rgba(239,71,111,0.08)] px-4 py-3 text-sm text-white">
           {alert.title}: {alert.description}
         </p>
       ) : null}
@@ -77,16 +77,16 @@ export default function TerminalPane({
           event.preventDefault();
           onCommandRun();
         }}
-        className="mt-4 rounded-[1.5rem] border border-[var(--border)] bg-[var(--bg0)]/80 p-3"
+        className="border-t border-white/8 bg-[#151515] px-4 py-3"
       >
-        <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] pb-3">
-          <p className="text-xs uppercase tracking-[0.22em] text-[var(--text2)]">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-white/40">
             {session ? t("workspace.cwd", { cwd: session.cwd }) : t("workspace.remoteCommand")}
           </p>
           <button
             type="submit"
             disabled={!session || commandBusy}
-            className="rounded-full border border-[var(--accent)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-md border border-white/10 bg-black/20 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/74 transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {commandBusy ? t("workspace.running") : t("workspace.run")}
           </button>
@@ -103,7 +103,7 @@ export default function TerminalPane({
           placeholder={t("workspace.commandPlaceholder")}
           autoComplete="off"
           spellCheck={false}
-          className="mt-3 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg1)] px-4 py-3 font-mono text-sm text-[var(--text0)] outline-none transition focus:border-[var(--border2)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="mt-3 w-full rounded-md border border-white/10 bg-[#0f0f10] px-3 py-2.5 font-mono text-sm text-white outline-none transition focus:border-white/20 disabled:cursor-not-allowed disabled:opacity-60"
         />
         {commandError ? <p className="mt-3 text-sm text-[var(--red)]">{commandError}</p> : null}
       </form>

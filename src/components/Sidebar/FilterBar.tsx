@@ -27,10 +27,10 @@ export default function FilterBar({ activeFilter, onChange }: FilterBarProps) {
             key={filter.value}
             type="button"
             onClick={() => onChange(filter.value)}
-            className={`rounded-full border px-3 py-1.5 text-xs font-medium uppercase tracking-[0.14em] transition ${
+            className={`rounded-md border px-2.5 py-1.5 text-[10px] font-medium uppercase tracking-[0.16em] transition ${
               active
-                ? "border-[var(--accent)] bg-[var(--bg3)] text-[var(--accent)]"
-                : "border-[var(--border)] bg-[var(--bg2)] text-[var(--text1)] hover:border-[var(--border2)]"
+                ? "border-[var(--accent)] bg-black/22 text-[var(--accent)]"
+                : "border-white/10 bg-black/12 text-white/58 hover:border-white/20 hover:text-white"
             }`}
           >
             {filterLabel(locale, filter.value)}

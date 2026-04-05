@@ -10,30 +10,30 @@ export default function CommandConfirm({ suggestion, onConfirm }: CommandConfirm
   const { locale, t } = useI18n();
 
   return (
-    <section className="rounded-[1.5rem] border border-[var(--border)] bg-[var(--bg1)] p-4">
-      <p className="text-xs uppercase tracking-[0.22em] text-[var(--text2)]">{t("ai.commandConfirm")}</p>
+    <section className="rounded-[10px] border border-white/8 bg-[#18181a] p-4">
+      <p className="text-[10px] uppercase tracking-[0.18em] text-white/42">{t("ai.commandConfirm")}</p>
 
       {suggestion ? (
         <>
-          <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[var(--bg0)] p-4">
-            <p className="font-mono text-sm text-[var(--text1)]">{suggestion.command}</p>
+          <div className="mt-3 rounded-md border border-white/8 bg-[#111113] p-4">
+            <p className="font-mono text-sm text-white/76">{suggestion.command}</p>
           </div>
-          <p className="mt-3 text-sm text-[var(--text1)]">{suggestion.reason}</p>
+          <p className="mt-3 text-sm text-white/68">{suggestion.reason}</p>
           <div className="mt-4 flex gap-2">
             <button
               type="button"
               onClick={onConfirm}
               disabled={suggestion.blocked}
-              className="rounded-full border border-[var(--accent)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md border border-white/10 bg-black/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-white/76 transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
             >
               {t("ai.confirm")}
             </button>
             <button
               type="button"
-              className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.18em] ${
+              className={`rounded-md border px-3 py-2 text-[10px] uppercase tracking-[0.18em] ${
                 suggestion.risk === CommandRisk.Blocked
                   ? "border-[var(--red)] text-[var(--red)]"
-                  : "border-[var(--border)] text-[var(--text1)]"
+                  : "border-white/10 text-white/58"
               }`}
             >
               {commandRiskLabel(locale, suggestion.risk)}
@@ -41,7 +41,7 @@ export default function CommandConfirm({ suggestion, onConfirm }: CommandConfirm
           </div>
         </>
       ) : (
-        <p className="mt-3 text-sm text-[var(--text1)]">{t("ai.emptySuggestion")}</p>
+        <p className="mt-3 text-sm text-white/56">{t("ai.emptySuggestion")}</p>
       )}
     </section>
   );

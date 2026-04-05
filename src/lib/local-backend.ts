@@ -553,7 +553,7 @@ async function upsertProject(draft: ProjectDraft): Promise<Project> {
     lastAccessedAt: current?.lastAccessedAt ?? Date.now(),
     health: current?.health ?? ProjectHealth.Healthy,
     recentIssue: current?.recentIssue,
-    extra: current?.extra ?? {},
+    extra: draft.extra ?? current?.extra ?? {},
   });
 
   const projects = current

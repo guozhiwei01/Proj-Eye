@@ -1,14 +1,9 @@
 import { useEffect, useMemo } from "react";
-import AIOverlay from "../components/AIOverlay/AIOverlay";
-import BottomPanel from "../components/BottomPanel/BottomPanel";
-import Sidebar from "../components/Sidebar/Sidebar";
-import Workspace from "../components/Workspace/Workspace";
+import Workbench from "../components/Workbench/Workbench";
 import { useI18n } from "../lib/i18n";
-import CreateProject from "./CreateProject";
-import Settings from "./Settings";
 import { useAppStore } from "../store/app";
 import { useWorkspaceStore } from "../store/workspace";
-import { AlertLevel, AppView, FilterMode, type AlertItem, type Locale, type Project } from "../types/models";
+import { AlertLevel, FilterMode, type AlertItem, type Locale, type Project } from "../types/models";
 
 const ANOMALY_RE = /error|warn|exception|timeout/i;
 const ERROR_RE = /error|exception|timeout/i;
@@ -54,12 +49,12 @@ function buildAlert(project: Project, logLines: string[], locale: Locale): Alert
       : AlertLevel.Warning,
     title:
       project.recentIssue ??
-      (locale === "zh-CN" ? "最近日志中检测到异常信号" : "Anomaly detected in recent logs"),
+      (locale === "zh-CN" ? "\u6700\u8fd1\u65e5\u5fd7\u51fa\u73b0\u5f02\u5e38\u4fe1\u53f7" : "Anomaly detected in recent logs"),
     description:
       recentError ??
       project.recentIssue ??
       (locale === "zh-CN"
-        ? "最近日志包含 warning / error 标记。"
+        ? "\u6700\u8fd1\u65e5\u5fd7\u5305\u542b warning / error \u6807\u8bb0\u3002"
         : "Recent log lines contain warning markers."),
     source: project.logSources[0]?.label ?? "runtime",
     createdAt: Date.now(),
@@ -72,10 +67,8 @@ export default function Home() {
   const searchQuery = useAppStore((state) => state.searchQuery);
   const filterMode = useAppStore((state) => state.filterMode);
   const activeProjectId = useAppStore((state) => state.activeProjectId);
-  const activeView = useAppStore((state) => state.activeView);
   const health = useAppStore((state) => state.health);
   const healthError = useAppStore((state) => state.healthError);
-
   const hydrateProject = useWorkspaceStore((state) => state.hydrateProject);
   const logs = useWorkspaceStore((state) => state.logs);
 
@@ -92,66 +85,51 @@ export default function Home() {
     null;
 
   useEffect(() => {
-    if (activeView !== AppView.Workspace || !activeProject) {
+    if (!activeProject) {
       return;
     }
 
     void hydrateProject(activeProject.id);
-  }, [activeProject, activeView, hydrateProject]);
+  }, [activeProject, hydrateProject]);
 
   const activeServer = useMemo(
-    () => activeProject ? config.servers.find((server) => server.id === activeProject.serverId) ?? null : null,
+    () =>
+      activeProject
+        ? config.servers.find((server) => server.id === activeProject.serverId) ?? null
+        : null,
     [activeProject, config.servers],
   );
+
   const activeDatabases = useMemo(
-    () => activeProject ? config.databases.filter((db) => activeProject.databaseIds.includes(db.id)) : [],
+    () =>
+      activeProject
+        ? config.databases.filter((database) => activeProject.databaseIds.includes(database.id))
+        : [],
     [activeProject, config.databases],
   );
+
   const activeLogs = useMemo(
-    () => activeProject ? logs.filter((e) => e.projectId === activeProject.id).map((e) => e.line) : [],
+    () =>
+      activeProject
+        ? logs.filter((entry) => entry.projectId === activeProject.id).map((entry) => entry.line)
+        : [],
     [activeProject, logs],
   );
+
   const activeAlert = useMemo(
-    () => activeProject ? buildAlert(activeProject, activeLogs, locale) : null,
+    () => (activeProject ? buildAlert(activeProject, activeLogs, locale) : null),
     [activeProject, activeLogs, locale],
   );
 
-  let content = null;
-
-  if (activeView === AppView.Manage || config.projects.length === 0) {
-    content = <CreateProject />;
-  } else if (activeView === AppView.Settings) {
-    content = <Settings />;
-  } else if (activeProject && activeServer) {
-    content = (
-      <>
-        <Workspace
-          project={activeProject}
-          server={activeServer}
-          databases={activeDatabases}
-          alert={activeAlert}
-          backendHealth={health}
-          backendError={healthError}
-        />
-        <BottomPanel project={activeProject} databases={activeDatabases} alert={activeAlert} />
-      </>
-    );
-  } else {
-    content = <CreateProject />;
-  }
-
   return (
-    <main className="mx-auto flex min-h-screen max-w-[1820px] flex-col gap-4 p-4 xl:flex-row xl:items-start">
-      <Sidebar projects={filteredProjects} activeProjectId={activeProject?.id ?? ""} />
-      <div className="min-w-0 flex-1 space-y-4">{content}</div>
-      {activeView === AppView.Workspace && activeProject && activeServer ? (
-        <AIOverlay
-          project={activeProject}
-          server={activeServer}
-          databases={activeDatabases}
-          alert={activeAlert}
-        />
-      ) : null}
-    </main>
+    <Workbench
+      projects={filteredProjects}
+      activeProject={activeProject}
+      activeServer={activeServer}
+      activeDatabases={activeDatabases}
+      alert={activeAlert}
+      backendHealth={health}
+      backendError={healthError}
+    />
   );
 }

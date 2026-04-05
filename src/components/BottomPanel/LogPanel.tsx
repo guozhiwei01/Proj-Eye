@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { localizeErrorMessage, useI18n } from "../../lib/i18n";
 import { hasAnomalySignal } from "../../lib/detector";
 import { useWorkspaceStore } from "../../store/workspace";
@@ -12,11 +12,13 @@ interface LogPanelProps {
 export default function LogPanel({ project, alert }: LogPanelProps) {
   const { locale, t } = useI18n();
   const refreshLogs = useWorkspaceStore((state) => state.refreshLogs);
-  const logs = useWorkspaceStore((state) => state.logs)
-    .filter((entry) => entry.projectId === project.id)
-    .map((entry) => entry.line);
+  const allLogs = useWorkspaceStore((state) => state.logs);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const logs = useMemo(
+    () => allLogs.filter((entry) => entry.projectId === project.id).map((entry) => entry.line),
+    [allLogs, project.id],
+  );
 
   const lines = logs.length
     ? logs

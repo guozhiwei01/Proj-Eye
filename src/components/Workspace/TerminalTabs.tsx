@@ -11,16 +11,16 @@ export default function TerminalTabs({ tabs, onSelect, onCreateTab }: TerminalTa
   const { t } = useI18n();
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
       {tabs.map((tab) => (
         <button
           key={tab.id}
           type="button"
           onClick={() => onSelect(tab.id)}
-          className={`rounded-full border px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] ${
+          className={`min-w-[88px] rounded-t-md border border-b-0 px-4 py-2 text-[11px] font-medium tracking-[0.1em] ${
             tab.active
-              ? "border-[var(--accent)] bg-[var(--bg3)] text-[var(--accent)]"
-              : "border-[var(--border)] bg-[var(--bg2)] text-[var(--text1)]"
+              ? "border-[#2a7fff] bg-[#202020] text-white shadow-[inset_0_2px_0_#2a7fff]"
+              : "border-white/10 bg-[#121212] text-white/56 hover:text-white/82"
           }`}
         >
           {tab.title}
@@ -30,9 +30,9 @@ export default function TerminalTabs({ tabs, onSelect, onCreateTab }: TerminalTa
       <button
         type="button"
         onClick={onCreateTab}
-        className="rounded-full border border-dashed border-[var(--border2)] px-3 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+        className="rounded-md border border-white/10 bg-[#121212] px-3 py-2 text-[11px] uppercase tracking-[0.16em] text-white/58 transition hover:border-white/20 hover:text-white"
       >
-        {t("workspace.newTab")}
+        + {t("workspace.newTab")}
       </button>
     </div>
   );

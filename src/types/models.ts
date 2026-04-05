@@ -422,6 +422,7 @@ export interface ProjectDraft {
   logSources: LogSource[];
   healthCheckCommand?: string;
   tags: string[];
+  extra?: Record<string, unknown>;
 }
 
 export interface ProviderDraft {
