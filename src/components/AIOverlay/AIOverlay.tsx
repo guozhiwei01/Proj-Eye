@@ -6,6 +6,8 @@ import CommandConfirm from "./CommandConfirm";
 import ContextSummary from "./ContextSummary";
 import ConversationArea from "./ConversationArea";
 
+const EMPTY_MESSAGES = [] as const;
+
 interface AIOverlayProps {
   project: Project;
   server: Server;
@@ -17,11 +19,12 @@ export default function AIOverlay({ project, server, databases, alert }: AIOverl
   const { t } = useI18n();
   const isAiOpen = usePanelsStore((state) => state.isAiOpen);
   const toggleAiOverlay = usePanelsStore((state) => state.toggleAiOverlay);
-  const messages = useAiStore((state) => state.messagesByProject[project.id] ?? []);
+  const projectMessages = useAiStore((state) => state.messagesByProject[project.id]);
   const suggestion = useAiStore((state) => state.suggestionsByProject[project.id] ?? null);
   const status = useAiStore((state) => state.status);
   const analyze = useAiStore((state) => state.analyze);
   const confirmSuggestion = useAiStore((state) => state.confirmSuggestion);
+  const messages = projectMessages ?? EMPTY_MESSAGES;
 
   return (
     <aside
