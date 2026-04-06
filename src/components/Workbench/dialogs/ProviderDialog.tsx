@@ -140,12 +140,10 @@ export default function ProviderDialog({ open, entityId, onClose }: ProviderDial
                 <FieldLabel>{t("management.name")}</FieldLabel>
                 <input
                   value={draft.name}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      name: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, name: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -154,12 +152,10 @@ export default function ProviderDialog({ open, entityId, onClose }: ProviderDial
                 <FieldLabel>{t("management.providerType")}</FieldLabel>
                 <select
                   value={draft.type}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      type: event.currentTarget.value as ProviderDraft["type"],
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value as ProviderDraft["type"];
+                    setDraft((state) => ({ ...state, type: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 >
                   <option value={ProviderType.OpenAI}>{providerTypeLabel(locale, ProviderType.OpenAI)}</option>
@@ -177,12 +173,10 @@ export default function ProviderDialog({ open, entityId, onClose }: ProviderDial
                 <FieldLabel>{t("management.model")}</FieldLabel>
                 <input
                   value={draft.model}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      model: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, model: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -191,12 +185,10 @@ export default function ProviderDialog({ open, entityId, onClose }: ProviderDial
                 <FieldLabel>{t("management.baseUrl")}</FieldLabel>
                 <input
                   value={draft.baseUrl ?? ""}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      baseUrl: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, baseUrl: value }));
+                  }}
                   placeholder={t("management.baseUrlPlaceholder")}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none placeholder:text-[var(--text2)]"
                 />
@@ -207,12 +199,10 @@ export default function ProviderDialog({ open, entityId, onClose }: ProviderDial
               <FieldLabel>{t("management.apiKey")}</FieldLabel>
               <input
                 value={draft.apiKeyValue ?? ""}
-                onChange={(event) =>
-                  setDraft((state) => ({
-                    ...state,
-                    apiKeyValue: event.currentTarget.value,
-                  }))
-                }
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  setDraft((state) => ({ ...state, apiKeyValue: value }));
+                }}
                 placeholder={t("management.keepApiKey")}
                 className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none placeholder:text-[var(--text2)]"
               />
@@ -222,12 +212,10 @@ export default function ProviderDialog({ open, entityId, onClose }: ProviderDial
               <input
                 type="checkbox"
                 checked={draft.enabled}
-                onChange={(event) =>
-                  setDraft((state) => ({
-                    ...state,
-                    enabled: event.currentTarget.checked,
-                  }))
-                }
+                onChange={(event) => {
+                  const checked = event.currentTarget.checked;
+                  setDraft((state) => ({ ...state, enabled: checked }));
+                }}
               />
               {t("management.providerEnabled")}
             </label>

@@ -180,12 +180,10 @@ export default function DatabaseDialog({
                 <FieldLabel>{t("management.name")}</FieldLabel>
                 <input
                   value={draft.name}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      name: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, name: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -194,12 +192,10 @@ export default function DatabaseDialog({
                 <FieldLabel>{t("management.databaseType")}</FieldLabel>
                 <select
                   value={draft.type}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      type: event.currentTarget.value as DatabaseDraft["type"],
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value as DatabaseDraft["type"];
+                    setDraft((state) => ({ ...state, type: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 >
                   <option value={DatabaseType.Mysql}>{databaseTypeLabel(locale, DatabaseType.Mysql)}</option>
@@ -216,12 +212,10 @@ export default function DatabaseDialog({
                 <FieldLabel>{t("management.host")}</FieldLabel>
                 <input
                   value={draft.host}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      host: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, host: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -231,12 +225,10 @@ export default function DatabaseDialog({
                 <input
                   type="number"
                   value={draft.port}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      port: Number(event.currentTarget.value),
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = Number(event.currentTarget.value);
+                    setDraft((state) => ({ ...state, port: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -249,12 +241,10 @@ export default function DatabaseDialog({
                 <FieldLabel>{t("management.username")}</FieldLabel>
                 <input
                   value={draft.username ?? ""}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      username: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, username: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -263,12 +253,10 @@ export default function DatabaseDialog({
                 <FieldLabel>{t("management.group")}</FieldLabel>
                 <input
                   value={draft.group}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      group: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, group: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -279,12 +267,10 @@ export default function DatabaseDialog({
                 <FieldLabel>{t("management.defaultDatabase")}</FieldLabel>
                 <input
                   value={draft.defaultDatabase ?? ""}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      defaultDatabase: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, defaultDatabase: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -294,12 +280,10 @@ export default function DatabaseDialog({
                 <input
                   type="number"
                   value={draft.dbNumber ?? 0}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      dbNumber: Number(event.currentTarget.value),
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = Number(event.currentTarget.value);
+                    setDraft((state) => ({ ...state, dbNumber: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -309,12 +293,10 @@ export default function DatabaseDialog({
               <FieldLabel>{t("management.credential")}</FieldLabel>
               <input
                 value={draft.credentialValue ?? ""}
-                onChange={(event) =>
-                  setDraft((state) => ({
-                    ...state,
-                    credentialValue: event.currentTarget.value,
-                  }))
-                }
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  setDraft((state) => ({ ...state, credentialValue: value }));
+                }}
                 placeholder={t("management.keepPassword")}
                 className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none placeholder:text-[var(--text2)]"
               />
@@ -324,12 +306,10 @@ export default function DatabaseDialog({
               <input
                 type="checkbox"
                 checked={draft.readonlyMode}
-                onChange={(event) =>
-                  setDraft((state) => ({
-                    ...state,
-                    readonlyMode: event.currentTarget.checked,
-                  }))
-                }
+                onChange={(event) => {
+                  const checked = event.currentTarget.checked;
+                  setDraft((state) => ({ ...state, readonlyMode: checked }));
+                }}
               />
               {t("management.readonlyMode")}
             </label>
@@ -338,15 +318,13 @@ export default function DatabaseDialog({
               <FieldLabel>{t("management.tags")}</FieldLabel>
               <input
                 value={tagText}
-                onChange={(event) =>
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
                   setDraft((state) => ({
                     ...state,
-                    tags: event.currentTarget.value
-                      .split(",")
-                      .map((tag) => tag.trim())
-                      .filter(Boolean),
-                  }))
-                }
+                    tags: value.split(",").map((tag) => tag.trim()).filter(Boolean),
+                  }));
+                }}
                 placeholder={t("management.tagsPlaceholder")}
                 className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none placeholder:text-[var(--text2)]"
               />

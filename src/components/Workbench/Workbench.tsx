@@ -1,8 +1,6 @@
 import { startTransition, useEffect, useMemo, useState, type ReactNode } from "react";
 import CommandConfirm from "../AIOverlay/CommandConfirm";
 import ConversationArea from "../AIOverlay/ConversationArea";
-import FilterBar from "../Sidebar/FilterBar";
-import SearchBar from "../Sidebar/SearchBar";
 import EmptyState from "../shared/EmptyState";
 import Badge from "../shared/Badge";
 import StatusDot from "../shared/StatusDot";
@@ -32,6 +30,8 @@ import {
   type Server,
 } from "../../types/models";
 import ManagementDialogs, { type WorkbenchDialogState } from "./ManagementDialogs";
+import TitleBar from "./TitleBar";
+import LeftRail from "./LeftRail";
 
 interface WorkbenchProps {
   projects: Project[];
@@ -43,7 +43,7 @@ interface WorkbenchProps {
   backendError: string | null;
 }
 
-type ResourceSectionKey = "server" | "database" | "logs" | "provider";
+type ResourceSectionKey = "server" | "database" | "logs";
 
 const EMPTY_MESSAGES: AIMessage[] = [];
 const EMPTY_LOGS: LogChunk[] = [];
@@ -163,21 +163,19 @@ function ActionButton({
 function RailGlyph({ kind }: { kind: ResourceSectionKey | "settings" }) {
   if (kind === "server") {
     return (
-      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <rect x="3.5" y="4" width="13" height="5" rx="1.3" />
-        <rect x="3.5" y="11" width="13" height="5" rx="1.3" />
-        <circle cx="6.5" cy="6.5" r="0.8" fill="currentColor" stroke="none" />
-        <circle cx="6.5" cy="13.5" r="0.8" fill="currentColor" stroke="none" />
+      <svg viewBox="0 0 1024 1024" className="h-[18px] w-[18px] fill-current" aria-hidden="true">
+        <path d="M852.9 147.8c4.9 0 9.1 4.2 9.1 9.1v167.8c0 4.9-4.2 9.1-9.1 9.1H171.1c-4.9 0-9.1-4.2-9.1-9.1V156.9c0-4.9 4.2-9.1 9.1-9.1h681.8m0-50H171.1c-32.5 0-59.1 26.6-59.1 59.1v167.8c0 32.5 26.6 59.1 59.1 59.1h681.8c32.5 0 59.1-26.6 59.1-59.1V156.9c0-32.5-26.6-59.1-59.1-59.1z" />
+        <path d="M290.5 214h-60v60h60v-60zM393.5 214h-60v60h60v-60zM806 214H591v60h215v-60zM852.9 417.8c4.9 0 9.1 4.2 9.1 9.1v167.8c0 4.9-4.2 9.1-9.1 9.1H171.1c-4.9 0-9.1-4.2-9.1-9.1V426.9c0-4.9 4.2-9.1 9.1-9.1h681.8m0-50H171.1c-32.5 0-59.1 26.6-59.1 59.1v167.8c0 32.5 26.6 59.1 59.1 59.1h681.8c32.5 0 59.1-26.6 59.1-59.1V426.9c0-32.5-26.6-59.1-59.1-59.1z" />
+        <path d="M290.5 484h-60v60h60v-60zM393.5 484h-60v60h60v-60zM806 484H591v60h215v-60zM852.9 687.8c4.9 0 9.1 4.2 9.1 9.1v167.8c0 4.9-4.2 9.1-9.1 9.1H171.1c-4.9 0-9.1-4.2-9.1-9.1V696.9c0-4.9 4.2-9.1 9.1-9.1h681.8m0-50H171.1c-32.5 0-59.1 26.6-59.1 59.1v167.8c0 32.5 26.6 59.1 59.1 59.1h681.8c32.5 0 59.1-26.6 59.1-59.1V696.9c0-32.5-26.6-59.1-59.1-59.1z" />
+        <path d="M290.5 754h-60v60h60v-60zM393.5 754h-60v60h60v-60zM806 754H591v60h215v-60z" />
       </svg>
     );
   }
 
   if (kind === "database") {
     return (
-      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.4">
-        <ellipse cx="10" cy="5.2" rx="5.8" ry="2.4" />
-        <path d="M4.2 5.2v6.1c0 1.3 2.6 2.4 5.8 2.4s5.8-1.1 5.8-2.4V5.2" />
-        <path d="M4.2 8.2c0 1.3 2.6 2.4 5.8 2.4s5.8-1.1 5.8-2.4" />
+      <svg viewBox="0 0 1024 1024" className="h-[18px] w-[18px] fill-current" aria-hidden="true">
+        <path d="M1014.9 935.6l-32.3-32.3c26.1-35.7 41.5-79.7 41.5-127.3 0-88-52.6-163.6-128-197.3V242c0-39.6-23.4-76.6-64-108.2C753.6 72.8 611 32 448 32S142.4 72.8 64 133.8C23.4 165.4 0 202.4 0 242v476c0 116 200.6 210 448 210 67.7 0 131.8-7 189.3-19.6C676.8 959.3 738.6 992 808 992c48.6 0 93.5-16.1 129.6-43.2l32.1 32.1c6.2 6.3 14.4 9.4 22.6 9.4s16.4-3.1 22.6-9.4c12.5-12.5 12.5-32.8 0-45.3zM158.4 151.5c36.5-17.1 79.4-30.6 127.7-40.2C337.2 101.1 391.7 96 448 96s110.8 5.1 161.9 15.3c48.3 9.6 91.2 23.1 127.7 40.2 58.2 27.3 94.4 62 94.4 90.5s-36.2 63.3-94.4 90.5c-36.5 17.1-79.4 30.6-127.7 40.2C558.8 382.9 504.3 388 448 388s-110.8-5.1-161.9-15.3c-48.3-9.6-91.2-23.1-127.7-40.2C100.2 305.3 64 270.6 64 242s36.2-63.3 94.4-90.5zM64 350.2c78.4 61 221 101.8 384 101.8s305.6-40.8 384-101.8V398c0 28.6-36.2 63.3-94.4 90.5-36.5 17.1-79.4 30.6-127.7 40.2C558.8 538.9 504.3 544 448 544s-110.8-5.1-161.9-15.3c-48.3-9.6-91.2-23.1-127.7-40.2C100.2 461.3 64 426.6 64 398v-47.8zM448 864c-56.3 0-110.8-5.1-161.9-15.3-48.3-9.6-91.2-23.1-127.7-40.2C100.2 781.3 64 746.6 64 718v-51.8c78.4 61 221 101.8 384 101.8 50.7 0 99.4-4 144.8-11.2-0.6 6.3-0.8 12.7-0.8 19.2 0 25.9 4.5 50.7 12.9 73.7C555.2 859.2 502.5 864 448 864z m162.4-175.4c-0.2 0-0.3 0.1-0.5 0.1C558.8 698.9 504.3 704 448 704s-110.8-5.1-161.9-15.3c-48.3-9.6-91.2-23.1-127.7-40.2C100.2 621.3 64 586.6 64 558v-51.8c78.4 61 221 101.8 384 101.8s305.6-40.8 384-101.8V558c0 1.1-0.1 2.2-0.2 3.3-7.8-0.9-15.8-1.3-23.8-1.3-88.2 0-164 52.9-197.6 128.6z m305.1 194.9C886.8 912.2 848.6 928 808 928c-37.7 0-73.3-13.6-101.2-38.6-2.2-1.9-4.3-3.9-6.3-6-14.2-14.2-25.3-30.8-32.8-48.8C660 816.3 656 796.5 656 776c0-11.2 1.2-22.2 3.5-32.8 6.2-28.1 20.2-53.8 41-74.6 2.7-2.7 5.5-5.3 8.4-7.8 19.5-16.8 42.6-28.2 67.5-33.5 10.3-2.2 20.9-3.3 31.7-3.3 32 0 62.5 9.8 88 28 6.9 4.9 13.4 10.4 19.5 16.5C944.2 697.2 960 735.4 960 776s-15.8 78.8-44.5 107.5z" />
       </svg>
     );
   }
@@ -186,15 +184,6 @@ function RailGlyph({ kind }: { kind: ResourceSectionKey | "settings" }) {
     return (
       <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
         <path d="M5 4.5h10M5 8.5h10M5 12.5h10M5 16.5h6" />
-      </svg>
-    );
-  }
-
-  if (kind === "provider") {
-    return (
-      <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6">
-        <path d="M10 3.8v12.4M3.8 10h12.4" />
-        <circle cx="10" cy="10" r="5.8" />
       </svg>
     );
   }
@@ -223,16 +212,18 @@ function RailIconButton({
   return (
     <button
       type="button"
+      aria-label={label}
+      title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-[64px] w-[54px] flex-col items-center justify-center gap-1 rounded-md border text-[10px] uppercase tracking-[0.12em] transition ${
+      className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
         active
           ? "border-[var(--accent)] bg-[#181818] text-[var(--accent)]"
           : "border-transparent bg-transparent text-white/58 hover:border-white/10 hover:bg-black/18 hover:text-white/84"
       } disabled:cursor-not-allowed disabled:opacity-35`}
     >
       <span>{icon}</span>
-      <span>{label}</span>
+      <span className="sr-only">{label}</span>
     </button>
   );
 }
@@ -282,18 +273,9 @@ function ProjectManagerPanel({
 }) {
   const { locale } = useI18n();
   const copy = workbenchText(locale);
-  const config = useAppStore((state) => state.config);
-  const searchQuery = useAppStore((state) => state.searchQuery);
-  const filterMode = useAppStore((state) => state.filterMode);
-  const setSearchQuery = useAppStore((state) => state.setSearchQuery);
-  const setFilterMode = useAppStore((state) => state.setFilterMode);
   const setActiveProjectId = useAppStore((state) => state.setActiveProjectId);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ root: true });
   const tree = useMemo(() => buildProjectFolderTree(projects), [projects]);
-  const projectFlowHint =
-    locale === "zh-CN"
-      ? "服务器和数据库会在新建项目流程里一起绑定"
-      : "Servers and databases are bound inside the project flow.";
 
   useEffect(() => {
     if (!activeProject) {
@@ -389,55 +371,20 @@ function ProjectManagerPanel({
   };
 
   return (
-    <section className="flex min-h-[28rem] flex-col border-r border-white/8 bg-[#4a4a4a] lg:min-h-screen">
+    <section className="flex w-[330px] shrink-0 flex-col border-r border-white/8 bg-[#4a4a4a] lg:min-h-screen">
       <div className="border-b border-white/10 px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <WindowDots />
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">Proj-Eye</p>
-              <h2 className="text-sm font-semibold text-white">{copy.projectManager}</h2>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => onOpenDialog({ kind: "settings" })}
-            className="rounded-md border border-white/10 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.16em] text-white/62 transition hover:border-white/20 hover:text-white"
-          >
-            {copy.settings}
-          </button>
-        </div>
-        <p className="mt-3 text-xs text-white/55">{copy.treeHint}</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Badge tone="info">{config.projects.length} {copy.project}</Badge>
-          <Badge tone="accent">{config.servers.length} {copy.resourceServer}</Badge>
-          <Badge tone="warning">{config.databases.length} {copy.resourceDatabase}</Badge>
+        <div className="flex items-center">
+          <h2 className="text-sm font-semibold text-white">{copy.projectManager}</h2>
         </div>
       </div>
 
       <div className="border-b border-white/8 px-3 py-3">
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        <div className="mt-3">
-          <FilterBar activeFilter={filterMode} onChange={setFilterMode} />
-        </div>
-        <div className="mt-3">
-          <ActionButton
-            label={copy.newProject}
-            onClick={() => onOpenDialog({ kind: "project" })}
-            fullWidth
-            primary
-          />
-          <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-white/44">
-            <span>{projectFlowHint}</span>
-            <button
-              type="button"
-              onClick={() => onOpenDialog({ kind: "provider" })}
-              className="rounded-md border border-white/10 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.16em] text-white/62 transition hover:border-white/20 hover:text-white"
-            >
-              {copy.newProvider}
-            </button>
-          </div>
-        </div>
+        <ActionButton
+          label={copy.newProject}
+          onClick={() => onOpenDialog({ kind: "project" })}
+          fullWidth
+          primary
+        />
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
@@ -518,7 +465,7 @@ function AiDock({
   };
 
   return (
-    <section className="flex min-h-[28rem] flex-col border-r border-white/8 bg-[#1d1d20] p-2 lg:min-h-screen">
+    <section className="flex w-[380px] shrink-0 flex-col border-r border-white/8 bg-[#1d1d20] p-2 lg:min-h-screen">
       <div className="mb-2 flex items-center gap-2 px-1 text-[11px] text-white/54">
         <WindowDots />
         <span className="rounded-md border border-white/8 bg-black/18 px-2 py-1">Balanced</span>
@@ -665,7 +612,7 @@ function TerminalColumn(_: {
 
   if (!activeProject || !activeServer) {
     return (
-      <section className="flex min-h-[28rem] flex-col bg-[#101010] lg:min-h-screen">
+      <section className="flex min-w-0 flex-1 flex-col bg-[#101010]">
         <div className="border-b border-white/8 bg-[#161616] px-3 py-2">
           <div className="flex items-center gap-3">
             <WindowDots />
@@ -684,7 +631,7 @@ function TerminalColumn(_: {
   const activeSession = sessions.find((session) => session.id === activeTab?.sessionId) ?? null;
 
   return (
-    <section className="flex min-h-[28rem] flex-col bg-[#101010] lg:min-h-screen">
+    <section className="flex min-h-[28rem] min-w-0 flex-1 flex-col bg-[#101010] lg:min-h-screen">
       <div className="border-b border-white/8 bg-[#171717] px-3 py-2">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -750,7 +697,6 @@ function ResourceRail(_: {
 }) {
   const { locale, t } = useI18n();
   const copy = workbenchText(locale);
-  const config = useAppStore((state) => state.config);
   const refreshLogs = useWorkspaceStore((state) => state.refreshLogs);
   const allLogs = useWorkspaceStore((state) => state.logs);
   const queryDrafts = useWorkspaceStore((state) => state.queryDrafts);
@@ -785,21 +731,17 @@ function ResourceRail(_: {
       ? copy.resourceServer
       : activeSection === "database"
         ? copy.resourceDatabase
-        : activeSection === "logs"
-          ? copy.resourceLogs
-          : copy.resourceProvider;
+        : copy.resourceLogs;
 
   const sectionSubtitle =
     activeSection === "server"
       ? (_.activeServer ? `${_.activeServer.username}@${_.activeServer.host}:${_.activeServer.port}` : copy.emptyProjectDescription)
       : activeSection === "database"
         ? copy.query
-        : activeSection === "logs"
-          ? (_.activeProject?.logSources[0]?.label ?? t("logs.unknownSource"))
-          : copy.providerHint;
+        : (_.activeProject?.logSources[0]?.label ?? t("logs.unknownSource"));
 
   return (
-    <section className="relative flex min-h-[28rem] overflow-visible border-l border-white/8 bg-[#2c2c2c] lg:min-h-screen">
+    <section className="relative flex w-[60px] shrink-0 overflow-visible border-l border-white/8 bg-[#2c2c2c]">
       {activeSection && _.activeProject && _.activeServer ? (
         <DrawerShell title={sectionTitle} subtitle={sectionSubtitle} onClose={() => setActiveSection(null)}>
           {activeSection === "server" ? (
@@ -982,48 +924,10 @@ function ResourceRail(_: {
             </div>
           ) : null}
 
-          {activeSection === "provider" ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xs text-white/48">{copy.providerHint}</div>
-                <button
-                  type="button"
-                  onClick={() => _.onOpenDialog({ kind: "provider" })}
-                  className="rounded-md border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/64 transition hover:border-white/20 hover:text-white"
-                >
-                  +
-                </button>
-              </div>
-              {config.providers.map((provider) => (
-                <div key={provider.id} className="rounded-lg border border-white/8 bg-black/18 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-sm font-medium text-white">{provider.name}</p>
-                      <p className="mt-1 text-xs uppercase tracking-[0.16em] text-white/42">
-                        {provider.type} / {provider.model}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => _.onOpenDialog({ kind: "provider", entityId: provider.id })}
-                      className="rounded-md border border-white/10 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/64 transition hover:border-white/20 hover:text-white"
-                    >
-                      Edit
-                    </button>
-                  </div>
-                  <div className="mt-3">
-                    <Badge tone={provider.enabled ? "accent" : "neutral"}>
-                      {provider.enabled ? t("status.enabled") : t("status.disabled")}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : null}
         </DrawerShell>
       ) : null}
 
-      <div className="flex w-[74px] flex-col items-center justify-between py-3">
+      <div className="flex w-[60px] flex-col items-center justify-start py-3">
         <div className="flex flex-col items-center gap-2">
           <RailIconButton
             label={copy.resourceServer}
@@ -1038,29 +942,6 @@ function ResourceRail(_: {
             active={activeSection === "database"}
             disabled={!_.activeProject || !_.activeServer}
             onClick={() => setActiveSection((state) => (state === "database" ? null : "database"))}
-          />
-          <RailIconButton
-            label={copy.resourceLogs}
-            icon={<RailGlyph kind="logs" />}
-            active={activeSection === "logs"}
-            disabled={!_.activeProject || !_.activeServer}
-            onClick={() => setActiveSection((state) => (state === "logs" ? null : "logs"))}
-          />
-          <RailIconButton
-            label={copy.resourceProvider}
-            icon={<RailGlyph kind="provider" />}
-            active={activeSection === "provider"}
-            disabled={!_.activeProject || !_.activeServer}
-            onClick={() => setActiveSection((state) => (state === "provider" ? null : "provider"))}
-          />
-        </div>
-
-        <div className="flex flex-col items-center gap-2">
-          <RailIconButton
-            label={copy.settings}
-            icon={<RailGlyph kind="settings" />}
-            active={false}
-            onClick={() => _.onOpenDialog({ kind: "settings" })}
           />
         </div>
       </div>
@@ -1078,36 +959,54 @@ export default function Workbench({
   backendError,
 }: WorkbenchProps) {
   const [dialog, setDialog] = useState<WorkbenchDialogState>({ kind: null });
+  const [showProjects, setShowProjects] = useState(true);
+  const [showAi, setShowAi] = useState(true);
 
   return (
     <>
-      <main className="grid min-h-screen grid-cols-1 bg-[#181818] lg:grid-cols-[330px_380px_minmax(0,1fr)_74px]">
-        <ProjectManagerPanel
-          projects={projects}
+      <div className="flex min-h-screen flex-col bg-[#181818]">
+        <TitleBar
           activeProject={activeProject}
-          onOpenDialog={(nextDialog) => setDialog(nextDialog)}
+          onOpenSettings={() => setDialog({ kind: "settings" })}
         />
-        <AiDock
-          activeProject={activeProject}
-          activeServer={activeServer}
-          activeDatabases={activeDatabases}
-          alert={alert}
-        />
-        <TerminalColumn
-          activeProject={activeProject}
-          activeServer={activeServer}
-          activeDatabases={activeDatabases}
-          alert={alert}
-          backendHealth={backendHealth}
-          backendError={backendError}
-        />
-        <ResourceRail
-          activeProject={activeProject}
-          activeServer={activeServer}
-          activeDatabases={activeDatabases}
-          onOpenDialog={(nextDialog) => setDialog(nextDialog)}
-        />
-      </main>
+        <main className="flex flex-1 overflow-hidden">
+          <LeftRail
+            showProjects={showProjects}
+            showAi={showAi}
+            onToggleProjects={() => setShowProjects((v) => !v)}
+            onToggleAi={() => setShowAi((v) => !v)}
+          />
+          {showProjects && (
+            <ProjectManagerPanel
+              projects={projects}
+              activeProject={activeProject}
+              onOpenDialog={(nextDialog) => setDialog(nextDialog)}
+            />
+          )}
+          {showAi && (
+            <AiDock
+              activeProject={activeProject}
+              activeServer={activeServer}
+              activeDatabases={activeDatabases}
+              alert={alert}
+            />
+          )}
+          <TerminalColumn
+            activeProject={activeProject}
+            activeServer={activeServer}
+            activeDatabases={activeDatabases}
+            alert={alert}
+            backendHealth={backendHealth}
+            backendError={backendError}
+          />
+          <ResourceRail
+            activeProject={activeProject}
+            activeServer={activeServer}
+            activeDatabases={activeDatabases}
+            onOpenDialog={(nextDialog) => setDialog(nextDialog)}
+          />
+        </main>
+      </div>
       <ManagementDialogs dialog={dialog} onClose={() => setDialog({ kind: null })} />
     </>
   );

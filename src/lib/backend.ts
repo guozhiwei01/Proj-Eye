@@ -285,9 +285,22 @@ export async function analyzeProject(
   projectId: string,
   context: AiContextPack,
 ): Promise<AiConversationResponse> {
-  return withBackend("ai_analyze_project", { projectId, context }, () =>
-    localBackend.analyzeProject(projectId, context),
-  );
+  if (backendMode === "local") {
+    return localBackend.analyzeProject(projectId, context);
+  }
+  // AI calls never silently fall back to mock — surface the real error.
+  try {
+    const result = await callTauri<AiConversationResponse>("ai_analyze_project", { projectId, context });
+    backendMode = "tauri";
+    return result;
+  } catch (error) {
+    if (backendMode === "unknown") {
+      // First call ever failed — Tauri not available, use local.
+      backendMode = "local";
+      return localBackend.analyzeProject(projectId, context);
+    }
+    throw error;
+  }
 }
 
 export async function sendAiFollowup(
@@ -296,9 +309,20 @@ export async function sendAiFollowup(
   history: AIMessage[],
   prompt: string,
 ): Promise<AiConversationResponse> {
-  return withBackend("ai_send_followup", { projectId, context, history, prompt }, () =>
-    localBackend.sendAiFollowup(projectId, context, history, prompt),
-  );
+  if (backendMode === "local") {
+    return localBackend.sendAiFollowup(projectId, context, history, prompt);
+  }
+  try {
+    const result = await callTauri<AiConversationResponse>("ai_send_followup", { projectId, context, history, prompt });
+    backendMode = "tauri";
+    return result;
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return localBackend.sendAiFollowup(projectId, context, history, prompt);
+    }
+    throw error;
+  }
 }
 
 export async function confirmSuggestedCommand(

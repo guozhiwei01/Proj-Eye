@@ -173,12 +173,10 @@ export default function ServerDialog({
               <FieldLabel>{t("management.name")}</FieldLabel>
               <input
                 value={draft.name}
-                onChange={(event) =>
-                  setDraft((state) => ({
-                    ...state,
-                    name: event.currentTarget.value,
-                  }))
-                }
+                onChange={(event) => {
+                  const value = event.currentTarget.value;
+                  setDraft((state) => ({ ...state, name: value }));
+                }}
                 className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
               />
             </label>
@@ -188,12 +186,10 @@ export default function ServerDialog({
                 <FieldLabel>{t("management.host")}</FieldLabel>
                 <input
                   value={draft.host}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      host: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, host: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -203,12 +199,10 @@ export default function ServerDialog({
                 <input
                   type="number"
                   value={draft.port}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      port: Number(event.currentTarget.value),
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = Number(event.currentTarget.value);
+                    setDraft((state) => ({ ...state, port: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -219,12 +213,10 @@ export default function ServerDialog({
                 <FieldLabel>{t("management.username")}</FieldLabel>
                 <input
                   value={draft.username}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      username: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, username: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -233,12 +225,10 @@ export default function ServerDialog({
                 <FieldLabel>{t("management.group")}</FieldLabel>
                 <input
                   value={draft.group}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      group: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, group: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 />
               </label>
@@ -251,12 +241,10 @@ export default function ServerDialog({
                 <FieldLabel>{t("management.authType")}</FieldLabel>
                 <select
                   value={draft.authType}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      authType: event.currentTarget.value as ServerDraft["authType"],
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value as ServerDraft["authType"];
+                    setDraft((state) => ({ ...state, authType: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 >
                   <option value={AuthType.Password}>{authTypeLabel(locale, AuthType.Password)}</option>
@@ -269,12 +257,10 @@ export default function ServerDialog({
                 <FieldLabel>{t("management.osType")}</FieldLabel>
                 <select
                   value={draft.osType}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      osType: event.currentTarget.value as ServerDraft["osType"],
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value as ServerDraft["osType"];
+                    setDraft((state) => ({ ...state, osType: value }));
+                  }}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none"
                 >
                   <option value={OSType.Linux}>{osTypeLabel(locale, OSType.Linux)}</option>
@@ -292,12 +278,10 @@ export default function ServerDialog({
                 <textarea
                   rows={5}
                   value={draft.credentialValue ?? ""}
-                  onChange={(event) =>
-                    setDraft((state) => ({
-                      ...state,
-                      credentialValue: event.currentTarget.value,
-                    }))
-                  }
+                  onChange={(event) => {
+                    const value = event.currentTarget.value;
+                    setDraft((state) => ({ ...state, credentialValue: value }));
+                  }}
                   placeholder={t("management.keepSecret")}
                   className="mt-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--bg0)] px-4 py-3 text-sm text-[var(--text0)] outline-none placeholder:text-[var(--text2)]"
                 />

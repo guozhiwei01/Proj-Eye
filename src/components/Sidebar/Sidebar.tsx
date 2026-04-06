@@ -14,9 +14,7 @@ import {
   type Project,
 } from "../../types/models";
 import Badge from "../shared/Badge";
-import FilterBar from "./FilterBar";
 import ProjectList from "./ProjectList";
-import SearchBar from "./SearchBar";
 
 interface SidebarProps {
   projects: Project[];
@@ -27,15 +25,11 @@ const themeOptions = [ThemeMode.Teal, ThemeMode.Amber, ThemeMode.Blue] as const;
 
 export default function Sidebar({ projects, activeProjectId }: SidebarProps) {
   const { locale, t } = useI18n();
-  const searchQuery = useAppStore((state) => state.searchQuery);
-  const filterMode = useAppStore((state) => state.filterMode);
   const theme = useAppStore((state) => state.theme);
   const activeView = useAppStore((state) => state.activeView);
   const secureStatus = useAppStore((state) => state.secureStatus);
   const config = useAppStore((state) => state.config);
   const setTheme = useAppStore((state) => state.setTheme);
-  const setSearchQuery = useAppStore((state) => state.setSearchQuery);
-  const setFilterMode = useAppStore((state) => state.setFilterMode);
   const setActiveProjectId = useAppStore((state) => state.setActiveProjectId);
   const setActiveView = useAppStore((state) => state.setActiveView);
   const setManagementSection = useAppStore((state) => state.setManagementSection);
@@ -112,9 +106,6 @@ export default function Sidebar({ projects, activeProjectId }: SidebarProps) {
             {t("sidebar.settings")}
           </button>
         </nav>
-
-        <SearchBar value={searchQuery} onChange={setSearchQuery} />
-        <FilterBar activeFilter={filterMode} onChange={setFilterMode} />
 
         <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
           <ProjectList
