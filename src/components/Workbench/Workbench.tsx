@@ -1,4 +1,4 @@
-import { startTransition, useEffect, useMemo, useState, type ReactNode } from "react";
+import { startTransition, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import CommandConfirm from "../AIOverlay/CommandConfirm";
 import ConversationArea from "../AIOverlay/ConversationArea";
 import EmptyState from "../shared/EmptyState";
@@ -6,13 +6,12 @@ import Badge from "../shared/Badge";
 import StatusDot from "../shared/StatusDot";
 import TerminalPane from "../Workspace/TerminalPane";
 import TerminalTabs from "../Workspace/TerminalTabs";
-import { databaseTypeLabel, localizeErrorMessage, useI18n } from "../../lib/i18n";
+import { aiStatusLabel, databaseTypeLabel, localizeErrorMessage, useI18n } from "../../lib/i18n";
 import { hasAnomalySignal } from "../../lib/detector";
 import {
   buildProjectFolderTree,
   collectExpandedFolderIds,
   getProjectManagerPath,
-  managerPathLabel,
   type ProjectFolderNode,
 } from "../../lib/project-manager";
 import { useAiStore } from "../../store/ai";
@@ -81,8 +80,6 @@ function workbenchText(locale: string) {
       providerHint: "这里管理当前工作台使用的 Provider。",
       databaseResult: "查询结果",
       close: "收起",
-      selectedDetails: "当前选中",
-      noSelection: "未选择项目",
     };
   }
 
@@ -117,8 +114,6 @@ function workbenchText(locale: string) {
     providerHint: "Manage providers available to the workbench here.",
     databaseResult: "Query results",
     close: "Close",
-    selectedDetails: "Selected",
-    noSelection: "No active project",
   };
 }
 
@@ -216,15 +211,26 @@ function RailIconButton({
       title={label}
       disabled={disabled}
       onClick={onClick}
-      className={`flex h-11 w-11 items-center justify-center rounded-lg border transition ${
+      className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 ${
         active
           ? "border-[var(--accent)] bg-[#181818] text-[var(--accent)]"
-          : "border-transparent bg-transparent text-white/58 hover:border-white/10 hover:bg-black/18 hover:text-white/84"
-      } disabled:cursor-not-allowed disabled:opacity-35`}
+          : "border-transparent bg-transparent text-white/58 hover:border-white/10 hover:bg-black/18 hover:text-white/84 active:scale-[0.97]"
+      } disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:translate-y-0 disabled:hover:bg-transparent disabled:hover:text-white/40 disabled:active:scale-100`}
     >
       <span>{icon}</span>
       <span className="sr-only">{label}</span>
+      <span className="pointer-events-none absolute right-full mr-2.5 whitespace-nowrap rounded-md bg-[#2a2a2c] px-2.5 py-1 text-[11px] text-white/80 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
+        {label}
+      </span>
     </button>
+  );
+}
+
+function EditGlyph() {
+  return (
+    <svg viewBox="0 0 1024 1024" className="h-4.5 w-4.5 fill-current" aria-hidden="true">
+      <path d="M526.41 117.029v58.514a7.314 7.314 0 0 1-7.315 7.314H219.429a36.571 36.571 0 0 0-35.987 29.989l-0.585 6.583V804.57a36.571 36.571 0 0 0 29.989 35.987l6.583 0.585H804.57a36.571 36.571 0 0 0 35.987-29.989l0.585-6.583v-317.44a7.314 7.314 0 0 1 7.314-7.314h58.514a7.314 7.314 0 0 1 7.315 7.314v317.44a109.714 109.714 0 0 1-99.182 109.203l-10.533 0.512H219.43a109.714 109.714 0 0 1-109.203-99.182l-0.512-10.533V219.43a109.714 109.714 0 0 1 99.182-109.203l10.533-0.512h299.666a7.314 7.314 0 0 1 7.314 7.315z m307.345 31.817l41.4 41.399a7.314 7.314 0 0 1 0 10.313L419.985 655.726a7.314 7.314 0 0 1-10.313 0l-41.399-41.4a7.314 7.314 0 0 1 0-10.312l455.168-455.168a7.314 7.314 0 0 1 10.313 0z" />
+    </svg>
   );
 }
 
@@ -266,14 +272,17 @@ function ProjectManagerPanel({
   projects,
   activeProject,
   onOpenDialog,
+  onOpenTerminalTab,
 }: {
   projects: Project[];
   activeProject: Project | null;
   onOpenDialog: (dialog: WorkbenchDialogState) => void;
+  onOpenTerminalTab: (projectId: string) => void;
 }) {
   const { locale } = useI18n();
   const copy = workbenchText(locale);
   const setActiveProjectId = useAppStore((state) => state.setActiveProjectId);
+  const hydrateProject = useWorkspaceStore((state) => state.hydrateProject);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({ root: true });
   const tree = useMemo(() => buildProjectFolderTree(projects), [projects]);
 
@@ -306,10 +315,28 @@ function ProjectManagerPanel({
   const renderProjectRow = (project: Project, depth: number) => {
     const active = activeProject?.id === project.id;
 
+    const handleSelectProject = () => {
+      setActiveProjectId(project.id);
+      void hydrateProject(project.id);
+    };
+
     return (
       <div
         key={project.id}
-        className={`group flex items-center gap-2 rounded-md border px-2 py-2 transition ${
+        role="button"
+        tabIndex={0}
+        onClick={handleSelectProject}
+        onDoubleClick={() => {
+          handleSelectProject();
+          onOpenTerminalTab(project.id);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            handleSelectProject();
+          }
+        }}
+        className={`group flex w-full cursor-pointer items-center gap-2 rounded-md border px-2 py-2 text-left transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--accent)]/35 ${
           active
             ? "border-[var(--accent)]/30 bg-[#1a1a1a] shadow-[inset_3px_0_0_var(--accent)]"
             : "border-transparent hover:bg-black/14"
@@ -317,16 +344,21 @@ function ProjectManagerPanel({
         style={{ marginLeft: `${depth * 14}px` }}
       >
         <StatusDot status={project.health} />
-        <button type="button" onClick={() => setActiveProjectId(project.id)} className="min-w-0 flex-1 text-left">
+        <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-medium text-white">{project.name}</p>
           <p className="truncate text-[11px] text-white/42">{project.rootPath}</p>
-        </button>
+        </div>
         <button
           type="button"
-          onClick={() => onOpenDialog({ kind: "project", entityId: project.id })}
-          className="rounded-md border border-white/10 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-white/58 opacity-0 transition group-hover:opacity-100 hover:border-white/20 hover:text-white"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenDialog({ kind: "project", entityId: project.id });
+          }}
+          aria-label={locale === "zh-CN" ? "编辑项目" : "Edit project"}
+          title={locale === "zh-CN" ? "编辑项目" : "Edit project"}
+          className="flex h-7 w-7 items-center justify-center text-white/58 opacity-0 transition group-hover:opacity-100 hover:text-white"
         >
-          Edit
+          <EditGlyph />
         </button>
       </div>
     );
@@ -371,7 +403,7 @@ function ProjectManagerPanel({
   };
 
   return (
-    <section className="flex w-[330px] shrink-0 flex-col border-r border-white/8 bg-[#4a4a4a] lg:min-h-screen">
+    <section className="flex min-h-0 w-[330px] shrink-0 flex-col border-r border-white/8 bg-[#4a4a4a]">
       <div className="border-b border-white/10 px-4 py-3">
         <div className="flex items-center">
           <h2 className="text-sm font-semibold text-white">{copy.projectManager}</h2>
@@ -398,23 +430,6 @@ function ProjectManagerPanel({
         )}
       </div>
 
-      <div className="border-t border-white/10 bg-black/10 px-3 py-3">
-        <p className="text-[11px] uppercase tracking-[0.18em] text-white/42">{copy.selectedDetails}</p>
-        {activeProject ? (
-          <div className="mt-2 grid grid-cols-[70px_minmax(0,1fr)] gap-x-3 gap-y-1.5 text-xs">
-            <span className="text-white/42">Name</span>
-            <span className="truncate text-white/90">{activeProject.name}</span>
-            <span className="text-white/42">Path</span>
-            <span className="truncate text-white/72">{managerPathLabel(getProjectManagerPath(activeProject))}</span>
-            <span className="text-white/42">Root</span>
-            <span className="truncate text-white/72">{activeProject.rootPath}</span>
-            <span className="text-white/42">Issue</span>
-            <span className="truncate text-white/72">{activeProject.recentIssue ?? "-"}</span>
-          </div>
-        ) : (
-          <p className="mt-2 text-xs text-white/56">{copy.noSelection}</p>
-        )}
-      </div>
     </section>
   );
 }
@@ -423,27 +438,40 @@ function AiDock({
   activeProject,
   activeServer,
   activeDatabases,
-  alert,
+  width,
 }: {
   activeProject: Project | null;
   activeServer: Server | null;
   activeDatabases: DatabaseResource[];
-  alert: AlertItem | null;
+  width: number;
 }) {
-  const { locale, t } = useI18n();
+  const { locale } = useI18n();
   const copy = workbenchText(locale);
   const [prompt, setPrompt] = useState("");
   const activeProjectId = activeProject?.id ?? null;
   const messagesByProject = useAiStore((state) => state.messagesByProject);
   const suggestionsByProject = useAiStore((state) => state.suggestionsByProject);
   const statusByProject = useAiStore((state) => state.statusByProject);
-  const analyze = useAiStore((state) => state.analyze);
+  const historyByProject = useAiStore((state) => state.historyByProject);
   const sendFollowup = useAiStore((state) => state.sendFollowup);
   const confirmSuggestion = useAiStore((state) => state.confirmSuggestion);
+  const startNewConversation = useAiStore((state) => state.startNewConversation);
+  const restoreConversation = useAiStore((state) => state.restoreConversation);
+  const [showHistory, setShowHistory] = useState(false);
   const messages = activeProjectId ? messagesByProject[activeProjectId] ?? EMPTY_MESSAGES : EMPTY_MESSAGES;
   const suggestion = activeProjectId ? suggestionsByProject[activeProjectId] ?? null : null;
+  const historyEntries = activeProjectId ? historyByProject[activeProjectId] ?? [] : [];
   const status = activeProjectId ? statusByProject[activeProjectId] ?? AIStatus.Ready : AIStatus.Ready;
   const isBusy = status === AIStatus.Analyzing;
+  const conversationLead = locale === "zh-CN" ? "用户问候与对话开始" : "Conversation begins here";
+  const statusLabel = aiStatusLabel(locale, status);
+  const historyLabel = locale === "zh-CN" ? "历史对话" : "History";
+  const newConversationLabel = locale === "zh-CN" ? "新开对话" : "New conversation";
+  const emptyHistoryLabel = locale === "zh-CN" ? "还没有历史对话" : "No saved conversations";
+
+  useEffect(() => {
+    setShowHistory(false);
+  }, [activeProjectId]);
 
   const handleSend = async () => {
     if (!activeProject || !activeServer) {
@@ -465,57 +493,102 @@ function AiDock({
   };
 
   return (
-    <section className="flex w-[380px] shrink-0 flex-col border-r border-white/8 bg-[#1d1d20] p-2 lg:min-h-screen">
-      <div className="mb-2 flex items-center gap-2 px-1 text-[11px] text-white/54">
-        <WindowDots />
-        <span className="rounded-md border border-white/8 bg-black/18 px-2 py-1">Balanced</span>
-        <span className="truncate rounded-md border border-white/8 bg-black/12 px-2 py-1">
-          {activeProject?.name ?? copy.aiConsole}
-        </span>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col rounded-[12px] border border-white/8 bg-[#1f1f22]">
-        <div className="border-b border-white/8 px-4 py-3">
-          <div className="flex items-center justify-between gap-3">
+    <section
+      className="flex min-h-0 shrink-0 flex-col border-r border-white/8 bg-[#17181b] p-2.5"
+      style={{ width }}
+    >
+      <div className="flex min-h-0 flex-1 flex-col rounded-[24px] bg-[#1a1b1f]">
+        <div className="border-b border-white/6 px-5 pb-3.5 pt-4">
+          <p className="text-[11px] font-medium tracking-[0.08em] text-[#e6d0a6]">
+            {locale === "zh-CN" ? "\u7528\u6237\u95ee\u5019\u4e0e\u5bf9\u8bdd\u5f00\u59cb" : conversationLead}
+          </p>
+          <div className="mt-3 flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
-                <h2 className="truncate text-[15px] font-semibold text-white">Proj-Eye AI</h2>
-              </div>
-              <p className="mt-1 truncate text-xs text-white/50">
+              <h2 className="truncate text-[20px] font-semibold tracking-tight text-white">{copy.aiConsole}</h2>
+              <p className="mt-1.5 truncate text-[13px] text-white/36">
                 {activeProject && activeServer
                   ? `${activeProject.name} · ${activeServer.username}@${activeServer.host}`
                   : copy.emptyProjectDescription}
               </p>
             </div>
-            {activeProject && activeServer ? (
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() =>
-                  void analyze(
-                    activeProject.id,
-                    activeProject.name,
-                    activeDatabases.map((database) => `${database.name}:${database.type}`),
-                  )
-                }
-                disabled={isBusy}
-                className="rounded-md border border-white/10 bg-black/18 px-3 py-2 text-[10px] uppercase tracking-[0.18em] text-white/74 transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-60"
+                title={historyLabel}
+                aria-label={historyLabel}
+                disabled={!activeProjectId}
+                onClick={() => setShowHistory((value) => !value)}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.04] text-white/54 transition hover:text-white disabled:opacity-35"
               >
-                {isBusy ? copy.analyzing : t("ai.analyze")}
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M3.5 10a6.5 6.5 0 1 0 1.8-4.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M3.5 4.5v3.4h3.4" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 6.5v3.8l2.6 1.4" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
-            ) : null}
+              <button
+                type="button"
+                title={newConversationLabel}
+                aria-label={newConversationLabel}
+                disabled={!activeProjectId || isBusy}
+                onClick={() => {
+                  if (!activeProjectId) {
+                    return;
+                  }
+                  startNewConversation(activeProjectId);
+                  setPrompt("");
+                  setShowHistory(false);
+                }}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/[0.04] text-white/54 transition hover:text-white disabled:opacity-35"
+              >
+                <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                  <path d="M10 4v12M4 10h12" strokeLinecap="round" />
+                </svg>
+              </button>
+              <span className="rounded-full bg-white/[0.04] px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/42">
+                {statusLabel}
+              </span>
+            </div>
           </div>
 
-          {activeProject ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge tone="info">{managerPathLabel(getProjectManagerPath(activeProject))}</Badge>
-              {activeDatabases.map((database) => (
-                <Badge key={database.id} tone="accent">
-                  {database.name}
-                </Badge>
-              ))}
+          {showHistory ? (
+            <div className="mt-3 rounded-[16px] bg-black/12 p-2">
+              {historyEntries.length === 0 ? (
+                <p className="px-2 py-2 text-[12px] text-white/42">{emptyHistoryLabel}</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {historyEntries.map((entry) => (
+                    <button
+                      key={entry.id}
+                      type="button"
+                      onClick={() => {
+                        if (!activeProjectId) {
+                          return;
+                        }
+                        restoreConversation(activeProjectId, entry.id);
+                        setShowHistory(false);
+                      }}
+                      className="w-full rounded-[12px] bg-white/[0.03] px-3 py-2 text-left transition hover:bg-white/[0.06]"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-[12px] font-medium text-white/82">{entry.title}</p>
+                        <span className="shrink-0 text-[10px] text-white/28">
+                          {new Date(entry.updatedAt).toLocaleString(locale === "zh-CN" ? "zh-CN" : "en-US", {
+                            month: "numeric",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
+                      <p className="mt-1 truncate text-[11px] text-white/38">{entry.preview}</p>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
+
         </div>
 
         {!activeProject || !activeServer ? (
@@ -524,19 +597,15 @@ function AiDock({
           </div>
         ) : (
           <>
-            <div className="border-b border-white/8 bg-black/12 px-4 py-2 text-xs text-white/62">
-              <span className="mr-2 text-[var(--accent)]">{copy.activeSignal}</span>
-              {alert?.description ?? t("ai.waitingSignal")}
-            </div>
-
-            <div className="min-h-0 flex-1 p-3">
+            <div className="min-h-0 flex-1 px-4 pb-3 pt-4">
               <ConversationArea messages={messages} status={status} />
             </div>
 
             {suggestion ? (
-              <div className="border-t border-white/8 p-3">
+              <div className="px-4 pb-3 pt-1">
                 <CommandConfirm
                   suggestion={suggestion}
+                  busy={isBusy}
                   onConfirm={() => {
                     if (activeProject) {
                       void confirmSuggestion(activeProject.id);
@@ -547,37 +616,44 @@ function AiDock({
             ) : null}
 
             <form
-              className="border-t border-white/8 bg-[#232327] p-3"
+              className="px-4 pb-4 pt-1"
               onSubmit={(event) => {
                 event.preventDefault();
                 void handleSend();
               }}
             >
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/42">{copy.aiConsole}</p>
-                <span className="text-[11px] text-white/38">{copy.sendHint}</span>
-              </div>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.currentTarget.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    void handleSend();
-                  }
-                }}
-                placeholder={copy.askPlaceholder}
-                rows={3}
-                className="mt-3 w-full resize-none rounded-md border border-white/10 bg-[#19191b] px-3 py-3 text-sm leading-6 text-white outline-none placeholder:text-white/28 focus:border-white/20"
-              />
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="submit"
-                  disabled={isBusy || !prompt.trim()}
-                  className="rounded-md border border-white/10 bg-black/20 px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-white/78 transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-60"
-                >
-                  {copy.send}
-                </button>
+              <div className="rounded-[22px] bg-[#202226] px-4 pb-3 pt-3.5">
+                <textarea
+                  value={prompt}
+                  onChange={(event) => setPrompt(event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.shiftKey) {
+                      event.preventDefault();
+                      void handleSend();
+                    }
+                  }}
+                  placeholder={copy.askPlaceholder}
+                  rows={4}
+                  className="w-full resize-none bg-transparent text-[14px] leading-6 text-white outline-none placeholder:text-white/26"
+                />
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className="inline-flex rounded-full bg-black/14 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/38">
+                      {statusLabel}
+                    </span>
+                    <span className="truncate text-[11px] text-white/26">{copy.sendHint}</span>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isBusy || !prompt.trim()}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#2a2d32] text-white/74 transition hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-45"
+                  >
+                    <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.8">
+                      <path d="M4 10h10" strokeLinecap="round" />
+                      <path d="m10 4 6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </form>
           </>
@@ -599,16 +675,14 @@ function TerminalColumn(_: {
   const copy = workbenchText(locale);
   const allTabs = useWorkspaceStore((state) => state.terminalTabs);
   const sessions = useWorkspaceStore((state) => state.sessions);
-  const metrics = useWorkspaceStore((state) => state.metrics);
-  const commandDrafts = useWorkspaceStore((state) => state.commandDrafts);
-  const commandErrors = useWorkspaceStore((state) => state.commandErrors);
-  const commandBusy = useWorkspaceStore((state) => state.commandBusy);
+  const terminalBuffers = useWorkspaceStore((state) => state.terminalBuffers);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
-  const addTab = useWorkspaceStore((state) => state.addTab);
-  const setCommandDraft = useWorkspaceStore((state) => state.setCommandDraft);
-  const executeCommand = useWorkspaceStore((state) => state.executeCommand);
+  const closeTab = useWorkspaceStore((state) => state.closeTab);
+  const writeTerminalInput = useWorkspaceStore((state) => state.writeTerminalInput);
+  const resizeTerminal = useWorkspaceStore((state) => state.resizeTerminal);
+  const reconnectSession = useWorkspaceStore((state) => state.reconnectSession);
 
-  const { activeProject, activeServer, activeDatabases, alert, backendHealth, backendError } = _;
+  const { activeProject, activeServer } = _;
 
   if (!activeProject || !activeServer) {
     return (
@@ -631,56 +705,36 @@ function TerminalColumn(_: {
   const activeSession = sessions.find((session) => session.id === activeTab?.sessionId) ?? null;
 
   return (
-    <section className="flex min-h-[28rem] min-w-0 flex-1 flex-col bg-[#101010] lg:min-h-screen">
-      <div className="border-b border-white/8 bg-[#171717] px-3 py-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <TerminalTabs
-              tabs={terminalTabs}
-              onSelect={setActiveTab}
-              onCreateTab={() => {
-                void addTab(activeProject.id);
-              }}
-            />
-          </div>
-          <div className="hidden items-center gap-2 xl:flex">
-            <Badge tone="info">{activeServer.host}</Badge>
-            {activeDatabases.slice(0, 2).map((database) => (
-              <Badge key={database.id} tone="accent">
-                {database.name}
-              </Badge>
-            ))}
-            <span className="text-[11px] text-white/46">
-              {backendError ? backendError : `${backendHealth?.stage ?? "ready"} / ${backendHealth?.app ?? "Proj-Eye"}`}
-            </span>
-          </div>
-        </div>
+    <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-[#101010]">
+      <div className="box-border h-[30px] min-h-[30px] max-h-[30px] overflow-hidden border-b border-white/8 bg-[#17191c]">
+        <TerminalTabs
+          tabs={terminalTabs}
+          projectName={activeProject.name}
+          onSelect={setActiveTab}
+          onCloseTab={(tabId) => {
+            void closeTab(tabId);
+          }}
+        />
       </div>
-
-      {alert ? (
-        <div className="border-b border-[#6a2d38] bg-[#25161a] px-4 py-2 text-xs text-[#f2b7c3]">
-          <span className="font-medium">{alert.title}</span>
-          <span className="ml-2 text-[#c48d99]">{alert.description}</span>
-        </div>
-      ) : null}
 
       <div className="min-h-0 flex-1 p-2">
         <TerminalPane
           project={activeProject}
-          alert={alert}
           session={activeSession}
-          metrics={metrics}
-          commandDraft={activeSession ? commandDrafts[activeSession.id] ?? "" : ""}
-          commandError={activeSession ? commandErrors[activeSession.id] ?? null : null}
-          commandBusy={activeSession ? Boolean(commandBusy[activeSession.id]) : false}
-          onCommandChange={(value) => {
+          terminalBuffer={activeSession ? terminalBuffers[activeSession.id] ?? "" : ""}
+          onInput={(data) => {
             if (activeSession) {
-              setCommandDraft(activeSession.id, value);
+              void writeTerminalInput(activeSession.id, data);
             }
           }}
-          onCommandRun={() => {
+          onResize={(cols, rows) => {
             if (activeSession) {
-              void executeCommand(activeSession.id);
+              void resizeTerminal(activeSession.id, cols, rows);
+            }
+          }}
+          onReconnect={() => {
+            if (activeSession) {
+              void reconnectSession(activeSession.id);
             }
           }}
         />
@@ -705,7 +759,7 @@ function ResourceRail(_: {
   const setQueryDraft = useWorkspaceStore((state) => state.setQueryDraft);
   const executeQuery = useWorkspaceStore((state) => state.executeQuery);
   const activeProjectId = _.activeProject?.id ?? null;
-  const [activeSection, setActiveSection] = useState<ResourceSectionKey | null>("server");
+  const [activeSection, setActiveSection] = useState<ResourceSectionKey | null>(null);
   const [activeDatabaseId, setActiveDatabaseId] = useState("");
   const [logBusy, setLogBusy] = useState(false);
   const [logError, setLogError] = useState<string | null>(null);
@@ -741,7 +795,7 @@ function ResourceRail(_: {
         : (_.activeProject?.logSources[0]?.label ?? t("logs.unknownSource"));
 
   return (
-    <section className="relative flex w-[60px] shrink-0 overflow-visible border-l border-white/8 bg-[#2c2c2c]">
+    <section className="relative flex w-[52px] shrink-0 overflow-visible border-l border-white/6 bg-[#161618]">
       {activeSection && _.activeProject && _.activeServer ? (
         <DrawerShell title={sectionTitle} subtitle={sectionSubtitle} onClose={() => setActiveSection(null)}>
           {activeSection === "server" ? (
@@ -927,8 +981,8 @@ function ResourceRail(_: {
         </DrawerShell>
       ) : null}
 
-      <div className="flex w-[60px] flex-col items-center justify-start py-3">
-        <div className="flex flex-col items-center gap-2">
+      <div className="flex w-[52px] flex-col items-center justify-start pt-3">
+        <div className="flex flex-col items-center gap-1.5">
           <RailIconButton
             label={copy.resourceServer}
             icon={<RailGlyph kind="server" />}
@@ -961,15 +1015,74 @@ export default function Workbench({
   const [dialog, setDialog] = useState<WorkbenchDialogState>({ kind: null });
   const [showProjects, setShowProjects] = useState(true);
   const [showAi, setShowAi] = useState(true);
+  const [aiWidth, setAiWidth] = useState(360);
+  const [mainWidth, setMainWidth] = useState(1480);
+  const mainRef = useRef<HTMLElement | null>(null);
+  const addTerminalTab = useWorkspaceStore((state) => state.addTab);
+
+  useEffect(() => {
+    const node = mainRef.current;
+    if (!node) {
+      return;
+    }
+
+    const observer = new ResizeObserver(() => {
+      setMainWidth(node.clientWidth);
+    });
+    observer.observe(node);
+    setMainWidth(node.clientWidth);
+
+    return () => observer.disconnect();
+  }, []);
+
+  const projectRailWidth = showProjects ? 330 : 0;
+  const leftRailWidth = 52;
+  const resourceRailWidth = 52;
+  const resizeHandleWidth = showAi ? 8 : 0;
+  const terminalMinWidth = 560;
+  const aiMinWidth = 260;
+  const aiMaxWidth = Math.max(
+    aiMinWidth,
+    mainWidth - leftRailWidth - projectRailWidth - resourceRailWidth - resizeHandleWidth - terminalMinWidth,
+  );
+  const effectiveAiWidth = showAi ? Math.min(aiWidth, aiMaxWidth) : 0;
+
+  const handleAiResizeStart = (event: React.MouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = effectiveAiWidth;
+    const root = window.document.documentElement;
+    const clearSelection = () => window.getSelection()?.removeAllRanges();
+    root.classList.add("proj-eye-resizing");
+    clearSelection();
+
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      moveEvent.preventDefault();
+      const nextWidth = Math.min(aiMaxWidth, Math.max(aiMinWidth, startWidth + (moveEvent.clientX - startX)));
+      setAiWidth(nextWidth);
+      clearSelection();
+    };
+
+    const handleMouseUp = () => {
+      root.classList.remove("proj-eye-resizing");
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("blur", handleMouseUp);
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("blur", handleMouseUp);
+  };
 
   return (
     <>
-      <div className="flex min-h-screen flex-col bg-[#181818]">
+      <div className="flex h-screen flex-col overflow-hidden bg-[#181818]">
         <TitleBar
           activeProject={activeProject}
           onOpenSettings={() => setDialog({ kind: "settings" })}
         />
-        <main className="flex flex-1 overflow-hidden">
+        <main ref={mainRef} className="flex min-h-0 flex-1 overflow-hidden">
           <LeftRail
             showProjects={showProjects}
             showAi={showAi}
@@ -981,6 +1094,9 @@ export default function Workbench({
               projects={projects}
               activeProject={activeProject}
               onOpenDialog={(nextDialog) => setDialog(nextDialog)}
+              onOpenTerminalTab={(projectId) => {
+                void addTerminalTab(projectId);
+              }}
             />
           )}
           {showAi && (
@@ -988,9 +1104,19 @@ export default function Workbench({
               activeProject={activeProject}
               activeServer={activeServer}
               activeDatabases={activeDatabases}
-              alert={alert}
+              width={effectiveAiWidth}
             />
           )}
+          {showAi ? (
+            <div
+              role="separator"
+              aria-orientation="vertical"
+              onMouseDown={handleAiResizeStart}
+              className="group relative w-2 shrink-0 cursor-col-resize select-none bg-transparent"
+            >
+              <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/8 transition group-hover:bg-[var(--accent)]/65" />
+            </div>
+          ) : null}
           <TerminalColumn
             activeProject={activeProject}
             activeServer={activeServer}

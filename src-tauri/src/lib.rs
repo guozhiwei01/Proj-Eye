@@ -1,9 +1,30 @@
 mod commands;
 mod store;
 
+use tauri::Manager;
+
+#[cfg(windows)]
+fn disable_webview_default_context_menu<R: tauri::Runtime>(app: &tauri::App<R>) {
+    if let Some(webview_window) = app.get_webview_window("main") {
+        let _ = webview_window.with_webview(|webview| unsafe {
+            if let Ok(core_webview) = webview.controller().CoreWebView2() {
+                if let Ok(settings) = core_webview.Settings() {
+                    let _ = settings.SetAreDefaultContextMenusEnabled(false);
+                }
+            }
+        });
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            #[cfg(windows)]
+            disable_webview_default_context_menu(app);
+
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .invoke_handler(tauri::generate_handler![
             commands::app_health,
@@ -26,12 +47,18 @@ pub fn run() {
             commands::ssh_connect_project,
             commands::ssh_create_terminal_tab,
             commands::ssh_execute_session_command,
+            commands::ssh_write_session_input,
+            commands::ssh_resize_session,
+            commands::ssh_close_session,
+            commands::ssh_reconnect_session,
             commands::logs_refresh_project,
             commands::database_run_query,
             commands::ai_analyze_project,
             commands::ai_send_followup,
             commands::ai_confirm_suggested_command,
-            commands::ai_validate_provider
+            commands::ai_validate_provider,
+            commands::diag_append_timing_log,
+            commands::diag_get_timing_log_path
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

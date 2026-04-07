@@ -31,7 +31,10 @@
       "Bash(tasklist)",
       "Bash(grep -n \"data-tauri\\\\|titlebar\\\\|TitleBar\\\\|title-bar\\\\|draggable\\\\|window-controls\" D:/project/rust/Proj-Eye/src-tauri/src/*.rs)",
       "Bash(taskkill //F //IM proj-eye.exe //T)",
-      "Bash(taskkill //F //IM cargo.exe //T)"
+      "Bash(taskkill //F //IM cargo.exe //T)",
+      "Bash(findstr \":1420 \")",
+      "Bash(findstr LISTENING)",
+      "Bash(taskkill:*)"
     ]
   }
 }

@@ -296,13 +296,17 @@ function buildPreviewSuggestion(
   locale: string,
   prompt?: string,
 ): AiCommandSuggestion {
-  const combinedSignal = [prompt ?? "", ...context.logSnippet, ...context.terminalSnippet].join(" ").toLowerCase();
+  const combinedSignal = [prompt ?? "", ...context.logSnippet, ...(context.commandOutputSnippet ?? []), ...context.terminalSnippet]
+    .join(" ")
+    .toLowerCase();
   const prefersLogs = /log|tail|error|trace|warn|timeout|日志|报错|异常/.test(combinedSignal);
   const prefersHealthCheck = /health|status|check|检查|状态/.test(combinedSignal);
 
   let command = project.logSources[0]
     ? `tail -n 200 ${project.logSources[0].value}`
-    : `cd ${project.rootPath} && ls -la`;
+    : project.rootPath
+      ? `ls -la ${project.rootPath}`
+      : "pwd";
   let reason = previewText(
     locale,
     "先看最新一段只读信号，确认问题是否还在持续出现。",
@@ -341,7 +345,9 @@ function buildPreviewAssistantMessage(
   locale: string,
   prompt?: string,
 ): string {
-  const warningSource = [...context.logSnippet, ...context.terminalSnippet].join(" ").toLowerCase();
+  const warningSource = [...context.logSnippet, ...(context.commandOutputSnippet ?? []), ...context.terminalSnippet]
+    .join(" ")
+    .toLowerCase();
   const timeoutDetected = warningSource.includes("timeout") || warningSource.includes("error");
   const nextPrompt = prompt?.trim().toLowerCase() ?? "";
   const lastAssistant = [...history].reverse().find((message) => message.speaker === "assistant");
@@ -726,7 +732,7 @@ export const localBackend = {
         ? "ssh-agent session ready"
         : `ssh ${server.username}@${server.host}`;
 
-    const generated = generateSession(project, "shell", transcriptCommand);
+    const generated = generateSession(project, project.name, transcriptCommand);
     if (previewCredentialMissing) {
       generated.session.transcript.splice(
         3,
@@ -752,7 +758,8 @@ export const localBackend = {
       throw new Error("Project not found.");
     }
 
-    const generated = generateSession(project, `shell-${currentCount + 1}`, `cd ${project.rootPath}`);
+    const title = currentCount === 0 ? project.name : `${project.name} ${currentCount + 1}`;
+    const generated = generateSession(project, title, `cd ${project.rootPath}`);
     return persistRuntimeSession(generated.session, generated.tab);
   },
 
@@ -781,6 +788,81 @@ export const localBackend = {
     return {
       session: updated,
       lines: preview.lines,
+    };
+  },
+
+  async writeSessionInput(sessionId: string, input: string): Promise<void> {
+    const session = runtimeSessions.get(sessionId);
+    if (!session || !input) {
+      return;
+    }
+  },
+
+  async resizeSession(sessionId: string, cols: number, rows: number): Promise<void> {
+    void sessionId;
+    void cols;
+    void rows;
+  },
+
+  async closeSession(sessionId: string): Promise<{ sessionId: string; tabId: string; projectId: string }> {
+    const session = runtimeSessions.get(sessionId);
+    if (!session) {
+      throw new Error("Terminal session not found.");
+    }
+
+    runtimeSessions.delete(sessionId);
+    runtimeTabs.delete(session.tabId);
+
+    return {
+      sessionId,
+      tabId: session.tabId,
+      projectId: session.projectId,
+    };
+  },
+
+  async reconnectSession(sessionId: string): Promise<{ session: SessionSummary; tab: TerminalTab }> {
+    const session = runtimeSessions.get(sessionId);
+    if (!session) {
+      throw new Error("Terminal session not found.");
+    }
+
+    const config = readConfig();
+    const project = config.projects.find((item) => item.id === session.projectId);
+    if (!project) {
+      throw new Error("Project not found.");
+    }
+
+    const tab = runtimeTabs.get(session.tabId);
+    if (!tab) {
+      throw new Error("Terminal tab not found.");
+    }
+
+    const nextSession: SessionSummary = {
+      ...session,
+      id: createId("session"),
+      cwd: session.cwd || project.rootPath,
+      connectionState: WorkspaceConnectionState.Ready,
+      transcript: [
+        `Reconnected to ${project.name}`,
+        `cd ${session.cwd || project.rootPath}`,
+        "Environment is ready.",
+      ],
+      startedAt: Date.now(),
+    };
+
+    const nextTab: TerminalTab = {
+      ...tab,
+      active: true,
+      sessionId: nextSession.id,
+    };
+
+    runtimeSessions.delete(sessionId);
+    runtimeSessions.set(nextSession.id, nextSession);
+    runtimeTabs.set(nextTab.id, nextTab);
+
+    return {
+      session: nextSession,
+      tab: nextTab,
     };
   },
 

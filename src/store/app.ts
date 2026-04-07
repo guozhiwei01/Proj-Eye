@@ -40,6 +40,7 @@ import {
   type ThemeMode as ThemeModeValue,
   type AppView as AppViewValue,
 } from "../types/models";
+import { useWorkspaceStore } from "./workspace";
 
 interface AppState {
   bootstrapping: boolean;
@@ -205,6 +206,12 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteServer: async (serverId) => {
+    const affectedProjectIds = get().config.projects
+      .filter((project) => project.serverId === serverId)
+      .map((project) => project.id);
+    for (const projectId of affectedProjectIds) {
+      await useWorkspaceStore.getState().closeProjectTabs(projectId);
+    }
     await deleteServerRecord(serverId);
     await get().refresh();
   },
@@ -238,6 +245,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   deleteProject: async (projectId) => {
+    await useWorkspaceStore.getState().closeProjectTabs(projectId);
     await deleteProjectRecord(projectId);
     await get().refresh();
   },

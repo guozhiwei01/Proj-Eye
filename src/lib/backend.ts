@@ -61,8 +61,11 @@ async function withBackend<T>(
     const result = await callTauri<T>(command, args);
     backendMode = "tauri";
     return result;
-  } catch {
-    return fallback(localFactory);
+  } catch (error) {
+    if (backendMode === "unknown") {
+      return fallback(localFactory);
+    }
+    throw error;
   }
 }
 
@@ -271,6 +274,29 @@ export async function executeSessionCommand(
   );
 }
 
+export async function writeSessionInput(sessionId: string, input: string): Promise<void> {
+  return withBackend("ssh_write_session_input", { sessionId, input }, () =>
+    localBackend.writeSessionInput(sessionId, input),
+  );
+}
+
+export async function resizeSession(sessionId: string, cols: number, rows: number): Promise<void> {
+  return withBackend("ssh_resize_session", { sessionId, cols, rows }, () =>
+    localBackend.resizeSession(sessionId, cols, rows),
+  );
+}
+
+export async function closeSession(sessionId: string): Promise<{ sessionId: string; tabId: string; projectId: string }> {
+  return withBackend("ssh_close_session", { sessionId }, () => localBackend.closeSession(sessionId));
+}
+
+export async function reconnectSession(sessionId: string): Promise<{
+  session: SessionSummary;
+  tab: TerminalTab;
+}> {
+  return withBackend("ssh_reconnect_session", { sessionId }, () => localBackend.reconnectSession(sessionId));
+}
+
 export async function refreshProjectLogs(projectId: string): Promise<LogChunk[]> {
   return withBackend("logs_refresh_project", { projectId }, () => localBackend.refreshProjectLogs(projectId));
 }
@@ -337,6 +363,41 @@ export async function confirmSuggestedCommand(
 
 export async function validateProvider(providerId: string): Promise<{ ok: boolean; message: string }> {
   return withBackend("ai_validate_provider", { providerId }, () => localBackend.validateProvider(providerId));
+}
+
+export async function appendTimingLog(entry: Record<string, unknown>): Promise<void> {
+  if (backendMode === "local") {
+    return;
+  }
+
+  try {
+    await callTauri<void>("diag_append_timing_log", { entry });
+    backendMode = "tauri";
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return;
+    }
+    throw error;
+  }
+}
+
+export async function getTimingLogPath(): Promise<string | null> {
+  if (backendMode === "local") {
+    return null;
+  }
+
+  try {
+    const path = await callTauri<string>("diag_get_timing_log_path");
+    backendMode = "tauri";
+    return path;
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function inspectCredentialRef(ref?: string | null): Promise<boolean> {

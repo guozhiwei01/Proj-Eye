@@ -16,20 +16,24 @@ function App() {
   const { t } = useI18n();
 
   useEffect(() => {
-    void initialize();
-  }, [initialize]);
-
-  useEffect(() => {
+    let disposed = false;
     let dispose: (() => void) | undefined;
 
-    void ensureRuntimeListeners().then((unlisten) => {
-      dispose = unlisten;
-    });
+    void (async () => {
+      try {
+        dispose = await ensureRuntimeListeners();
+      } finally {
+        if (!disposed) {
+          await initialize();
+        }
+      }
+    })();
 
     return () => {
+      disposed = true;
       dispose?.();
     };
-  }, []);
+  }, [initialize]);
 
   useEffect(() => {
     if (locale) {

@@ -40,16 +40,17 @@ function RailBtn({
   return (
     <button
       type="button"
+      aria-label={label}
       title={label}
       onClick={onClick}
-      className={`group relative flex h-10 w-10 items-center justify-center rounded-xl transition-all ${
+      className={`group relative flex h-10 w-10 items-center justify-center rounded-xl border transition-all duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/20 ${
         active
-          ? "bg-white/12 text-white"
-          : "text-white/40 hover:bg-white/8 hover:text-white/70"
+          ? "border-[var(--accent)] bg-[#181818] text-[var(--accent)]"
+          : "border-transparent bg-transparent text-white/58 hover:border-white/10 hover:bg-black/18 hover:text-white/84 active:scale-[0.97]"
       }`}
     >
       {children}
-      {/* Tooltip */}
+      <span className="sr-only">{label}</span>
       <span className="pointer-events-none absolute left-full ml-2.5 whitespace-nowrap rounded-md bg-[#2a2a2c] px-2.5 py-1 text-[11px] text-white/80 opacity-0 shadow-lg transition-opacity group-hover:opacity-100">
         {label}
       </span>

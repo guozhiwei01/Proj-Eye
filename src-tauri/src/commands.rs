@@ -2,7 +2,7 @@ use serde::Serialize;
 use serde_json::Value;
 use tauri::AppHandle;
 
-use crate::store::{config, runtime, secure};
+use crate::store::{config, diagnostics, runtime, secure};
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -147,6 +147,35 @@ pub fn ssh_execute_session_command(
 }
 
 #[tauri::command]
+pub fn ssh_write_session_input(
+    app: AppHandle,
+    session_id: String,
+    input: String,
+) -> Result<(), String> {
+    runtime::write_session_input(&app, &session_id, &input)
+}
+
+#[tauri::command]
+pub fn ssh_resize_session(
+    app: AppHandle,
+    session_id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), String> {
+    runtime::resize_session(&app, &session_id, cols, rows)
+}
+
+#[tauri::command]
+pub fn ssh_close_session(app: AppHandle, session_id: String) -> Result<Value, String> {
+    runtime::close_session(&app, &session_id)
+}
+
+#[tauri::command]
+pub fn ssh_reconnect_session(app: AppHandle, session_id: String) -> Result<Value, String> {
+    runtime::reconnect_session(&app, &session_id)
+}
+
+#[tauri::command]
 pub fn logs_refresh_project(app: AppHandle, project_id: String) -> Result<Vec<Value>, String> {
     runtime::refresh_project_logs(&app, &project_id)
 }
@@ -193,4 +222,14 @@ pub fn ai_confirm_suggested_command(
 #[tauri::command]
 pub fn ai_validate_provider(app: AppHandle, provider_id: String) -> Result<Value, String> {
     runtime::validate_provider(&app, &provider_id)
+}
+
+#[tauri::command]
+pub fn diag_append_timing_log(app: AppHandle, entry: Value) -> Result<(), String> {
+    diagnostics::append_timing_log(&app, entry)
+}
+
+#[tauri::command]
+pub fn diag_get_timing_log_path(app: AppHandle) -> Result<String, String> {
+    diagnostics::timing_log_path(&app)
 }

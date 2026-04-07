@@ -24,6 +24,14 @@ body {
   background: #181818;
 }
 
+html.proj-eye-resizing,
+html.proj-eye-resizing body,
+html.proj-eye-resizing body * {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
 * {
   box-sizing: border-box;
 }

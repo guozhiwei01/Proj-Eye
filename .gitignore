@@ -14,8 +14,14 @@ dist-ssr
 target
 debug
 src-tauri/target
+src-tauri/NUL
+src-tauri/target-icon-build/
+src-tauri/target-icon-refresh/
+src-tauri/target-icon-sharp/
+src-tauri/target-ssh-probe/
 **/*.rs.bk
 .tmp-tauri-scout
+.tmp-artifacts/
 
 # Editor directories and files
 .vscode/*

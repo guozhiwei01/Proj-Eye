@@ -9,6 +9,15 @@ const devHost = tauriDevHost || "127.0.0.1";
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          xterm: ["@xterm/xterm", "@xterm/addon-fit"],
+        },
+      },
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

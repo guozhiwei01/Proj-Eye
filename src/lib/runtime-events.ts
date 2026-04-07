@@ -20,22 +20,48 @@ interface RuntimeLogEvent {
   logs: LogChunk[];
 }
 
+interface RuntimeTerminalEvent {
+  kind: "updated";
+  projectId: string;
+  session: SessionSummary;
+}
+
+interface RuntimeTerminalStreamEvent {
+  kind: "chunk";
+  projectId: string;
+  sessionId: string;
+  data: string;
+}
+
 let bindPromise: Promise<void> | null = null;
 let activeUnlisten: UnlistenFn | null = null;
 let subscriberCount = 0;
 
 async function bindListeners(): Promise<UnlistenFn> {
   const unlistenSession = await listen<RuntimeSessionEvent>("proj-eye://runtime/session", (event) => {
-    useWorkspaceStore.getState().ingestRuntimeConnection(event.payload.payload);
+    useWorkspaceStore.getState().ingestRuntimeConnection(event.payload);
   });
 
   const unlistenLogs = await listen<RuntimeLogEvent>("proj-eye://runtime/logs", (event) => {
     useWorkspaceStore.getState().ingestLogs(event.payload.logs);
   });
 
+  const unlistenTerminal = await listen<RuntimeTerminalEvent>("proj-eye://runtime/terminal", (event) => {
+    useWorkspaceStore.getState().upsertSession(event.payload.session);
+  });
+
+  const unlistenTerminalStream = await listen<RuntimeTerminalStreamEvent>(
+    "proj-eye://runtime/terminal-stream",
+    (event) => {
+      useWorkspaceStore.getState().appendTerminalData(event.payload.sessionId, event.payload.data);
+    },
+  );
+
   return () => {
     unlistenSession();
     unlistenLogs();
+    unlistenTerminal();
+    unlistenTerminalStream();
   };
 }
 

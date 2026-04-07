@@ -328,8 +328,10 @@ export interface AiContextPack {
   projectId: string;
   projectName: string;
   terminalSnippet: string[];
+  commandOutputSnippet?: string[];
   logSnippet: string[];
   databaseSummary: string[];
+  traceId?: string;
 }
 
 export interface AiCommandSuggestion {

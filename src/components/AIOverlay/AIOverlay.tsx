@@ -124,7 +124,7 @@ export default function AIOverlay({ project, server, databases, alert }: AIOverl
             </div>
           </form>
         </section>
-        <CommandConfirm suggestion={suggestion} onConfirm={() => void confirmSuggestion(project.id)} />
+        <CommandConfirm suggestion={suggestion} busy={isBusy} onConfirm={() => void confirmSuggestion(project.id)} />
       </div>
     </aside>
   );

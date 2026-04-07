@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
-use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::thread;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use mysql::{prelude::Queryable, Conn, OptsBuilder, Value as MysqlValue};
+use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use redis::Value as RedisValue;
 use reqwest::blocking::Client;
 use serde_json::{json, Map, Value};
@@ -13,36 +16,54 @@ use tauri::{AppHandle, Emitter};
 use url::Url;
 use uuid::Uuid;
 
-use super::{config, secure};
+use super::{config, diagnostics, secure};
 
 const SESSION_EVENT: &str = "proj-eye://runtime/session";
+const TERMINAL_EVENT: &str = "proj-eye://runtime/terminal";
+const TERMINAL_STREAM_EVENT: &str = "proj-eye://runtime/terminal-stream";
 const LOG_EVENT: &str = "proj-eye://runtime/logs";
 const QUERY_EVENT: &str = "proj-eye://runtime/query";
 const AI_EVENT: &str = "proj-eye://runtime/ai";
 const CWD_MARKER: &str = "__PROJ_EYE_CWD__";
 const EXIT_MARKER: &str = "__PROJ_EYE_EXIT__";
+const AI_MAX_RESPONSE_TOKENS: u32 = 320;
 
 #[derive(Clone)]
 struct RuntimeSession {
     id: String,
     project_id: String,
-    server_id: String,
     tab_id: String,
     title: String,
     cwd: String,
     connection_state: String,
     transcript: Vec<String>,
+    open_line: bool,
     started_at: u64,
+}
+
+struct InteractiveShell {
+    child: Box<dyn portable_pty::Child + Send>,
+    writer: Arc<Mutex<Box<dyn Write + Send>>>,
+    master: Box<dyn MasterPty + Send>,
+    cleanup_paths: Vec<PathBuf>,
+    pending_password: Option<String>,
 }
 
 #[derive(Default)]
 struct RuntimeState {
     sessions: HashMap<String, RuntimeSession>,
+    interactive_shells: HashMap<String, InteractiveShell>,
+}
+
+struct SshCommandSpec {
+    args: Vec<String>,
+    envs: Vec<(String, String)>,
+    cleanup_paths: Vec<PathBuf>,
+    password: Option<String>,
 }
 
 #[derive(Clone)]
 struct ServerConfigData {
-    id: String,
     name: String,
     host: String,
     port: u16,
@@ -197,7 +218,6 @@ fn emit_runtime_event(app: &AppHandle, event: &str, payload: Value) {
 fn parse_server(value: &Value) -> Result<ServerConfigData, String> {
     let payload = object(value)?;
     Ok(ServerConfigData {
-        id: string_field(payload, "id"),
         name: string_field(payload, "name"),
         host: string_field(payload, "host"),
         port: u16_field(payload, "port", 22),
@@ -316,6 +336,47 @@ fn session_to_value(session: &RuntimeSession) -> Value {
     })
 }
 
+fn session_intro_transcript(
+    project: &ProjectConfigData,
+    server: &ServerConfigData,
+    cwd: &str,
+    include_health_check: bool,
+    reconnecting: bool,
+) -> Vec<String> {
+    let mut transcript = vec![if reconnecting {
+        format!(
+            "Reconnecting to {}@{}:{}",
+            server.username, server.host, server.port
+        )
+    } else {
+        format!(
+            "Connecting to {}@{}:{}",
+            server.username, server.host, server.port
+        )
+    }];
+
+    let display_cwd = if cwd.trim().is_empty() {
+        if server.os_type == "windows" {
+            "%USERPROFILE%"
+        } else {
+            "~"
+        }
+    } else {
+        cwd
+    };
+
+    transcript.push(format!("cd {display_cwd}"));
+
+    if include_health_check {
+        if let Some(health_check) = project.health_check_command.as_deref() {
+            transcript.push(format!("Health check configured: {health_check}"));
+        }
+    }
+
+    transcript.push("Launching interactive shell...".to_string());
+    transcript
+}
+
 fn tab_to_value(session: &RuntimeSession, command: &str, active: bool) -> Value {
     json!({
         "id": session.tab_id,
@@ -348,6 +409,336 @@ where
         .ok_or_else(|| "Terminal session not found.".to_string())?;
     mutate(session);
     Ok(session.clone())
+}
+
+fn store_interactive_shell(session_id: &str, shell: InteractiveShell) -> Result<(), String> {
+    let mut state = runtime_state()
+        .lock()
+        .map_err(|_| "Runtime state lock was poisoned.".to_string())?;
+    state.interactive_shells.insert(session_id.to_string(), shell);
+    Ok(())
+}
+
+fn cleanup_interactive_shell(session_id: &str) {
+    let shell = {
+        let mut state = match runtime_state().lock() {
+            Ok(guard) => guard,
+            Err(_) => return,
+        };
+        state.interactive_shells.remove(session_id)
+    };
+
+    if let Some(mut shell) = shell {
+        let _ = shell.child.kill();
+        let _ = shell.child.wait();
+        cleanup_temp_paths(&shell.cleanup_paths);
+    }
+}
+
+fn password_prompt_detected(chunk: &str) -> bool {
+    let normalized = chunk.to_ascii_lowercase();
+    normalized.contains("password:")
+        || normalized.contains("password for")
+        || normalized.contains("verification code:")
+}
+
+fn maybe_answer_password_prompt(session_id: &str, chunk: &str) -> Result<(), String> {
+    if !password_prompt_detected(chunk) {
+        return Ok(());
+    }
+
+    let (writer, password) = {
+        let mut state = runtime_state()
+            .lock()
+            .map_err(|_| "Runtime state lock was poisoned.".to_string())?;
+        let shell = state
+            .interactive_shells
+            .get_mut(session_id)
+            .ok_or_else(|| "Interactive shell is not available for this session.".to_string())?;
+        let Some(password) = shell.pending_password.take() else {
+            return Ok(());
+        };
+        (Arc::clone(&shell.writer), password)
+    };
+
+    let mut writer = writer
+        .lock()
+        .map_err(|_| "Interactive shell writer lock was poisoned.".to_string())?;
+    writer
+        .write_all(format!("{password}\r").as_bytes())
+        .map_err(|error| format!("Unable to answer the SSH password prompt: {error}"))?;
+    writer
+        .flush()
+        .map_err(|error| format!("Unable to flush the SSH password response: {error}"))?;
+
+    Ok(())
+}
+
+fn remove_session(session_id: &str) -> Result<Option<RuntimeSession>, String> {
+    let mut state = runtime_state()
+        .lock()
+        .map_err(|_| "Runtime state lock was poisoned.".to_string())?;
+    Ok(state.sessions.remove(session_id))
+}
+
+fn emit_terminal_session(app: &AppHandle, session: &RuntimeSession) {
+    emit_runtime_event(
+        app,
+        TERMINAL_EVENT,
+        json!({
+            "kind": "updated",
+            "projectId": session.project_id,
+            "session": session_to_value(session)
+        }),
+    );
+}
+
+fn emit_terminal_chunk(app: &AppHandle, session: &RuntimeSession, data: &str) {
+    if data.is_empty() {
+        return;
+    }
+
+    emit_runtime_event(
+        app,
+        TERMINAL_STREAM_EVENT,
+        json!({
+            "kind": "chunk",
+            "projectId": session.project_id,
+            "sessionId": session.id,
+            "data": data
+        }),
+    );
+}
+
+fn append_transcript_fragment(session: &mut RuntimeSession, fragment: &str, newline_terminated: bool) {
+    if fragment.is_empty() && !newline_terminated {
+        return;
+    }
+
+    if session.open_line {
+        if let Some(last_line) = session.transcript.last_mut() {
+            last_line.push_str(fragment);
+        } else if !fragment.is_empty() {
+            session.transcript.push(fragment.to_string());
+        }
+    } else {
+        session.transcript.push(fragment.to_string());
+    }
+
+    session.open_line = !newline_terminated;
+}
+
+fn strip_ansi_sequences(input: &str) -> String {
+    let mut output = String::new();
+    let mut chars = input.chars().peekable();
+
+    while let Some(ch) = chars.next() {
+        if ch != '\u{1b}' {
+            if ch != '\u{7}' {
+                output.push(ch);
+            }
+            continue;
+        }
+
+        match chars.peek().copied() {
+            Some('[') => {
+                chars.next();
+                while let Some(next) = chars.next() {
+                    if ('@'..='~').contains(&next) {
+                        break;
+                    }
+                }
+            }
+            Some(']') => {
+                chars.next();
+                while let Some(next) = chars.next() {
+                    if next == '\u{7}' {
+                        break;
+                    }
+                    if next == '\u{1b}' && matches!(chars.peek(), Some('\\')) {
+                        chars.next();
+                        break;
+                    }
+                }
+            }
+            _ => {
+                let _ = chars.next();
+            }
+        }
+    }
+
+    output
+}
+
+fn append_transcript_text(session: &mut RuntimeSession, text: &str) {
+    if text.is_empty() {
+        return;
+    }
+
+    for piece in text.replace("\r\n", "\n").replace('\r', "\n").split_inclusive('\n') {
+        let newline_terminated = piece.ends_with('\n');
+        let fragment = strip_ansi_sequences(piece.trim_end_matches('\n'));
+        append_transcript_fragment(session, &fragment, newline_terminated);
+    }
+}
+
+fn process_interactive_output(
+    app: &AppHandle,
+    session_id: &str,
+    pending: &mut String,
+    chunk: &str,
+) {
+    if chunk.is_empty() {
+        return;
+    }
+
+    pending.push_str(chunk);
+
+    let mut display = String::new();
+    let mut transcript_text = String::new();
+    let mut cwd_update: Option<String> = None;
+
+    while let Some(newline_index) = pending.find('\n') {
+        let segment: String = pending.drain(..=newline_index).collect();
+        let line = segment.trim_end_matches('\n').trim_end_matches('\r');
+
+        if line.starts_with(CWD_MARKER) {
+            cwd_update = Some(line.trim_start_matches(CWD_MARKER).trim().to_string());
+            continue;
+        }
+
+        display.push_str(&segment);
+        transcript_text.push_str(&segment);
+    }
+
+    if !pending.is_empty() && !pending.starts_with(CWD_MARKER) && !CWD_MARKER.starts_with(pending.as_str()) {
+        display.push_str(pending);
+        transcript_text.push_str(pending);
+        pending.clear();
+    }
+
+    if display.is_empty() && cwd_update.is_none() {
+        return;
+    }
+
+    let updated = update_session(session_id, |session| {
+        if let Some(next_cwd) = cwd_update.clone().filter(|value| !value.is_empty()) {
+            session.cwd = next_cwd;
+        }
+        append_transcript_text(session, &transcript_text);
+        session.connection_state = "ready".to_string();
+    });
+
+    if let Ok(session) = updated {
+        if !display.is_empty() {
+            emit_terminal_chunk(app, &session, &display);
+        }
+        emit_terminal_session(app, &session);
+    }
+}
+
+fn mark_interactive_session_failed(app: &AppHandle, session_id: &str, message: &str) {
+    if let Ok(session) = update_session(session_id, |session| {
+        session.connection_state = "failed".to_string();
+        session.open_line = false;
+        session.transcript.push(message.to_string());
+    }) {
+        emit_terminal_chunk(app, &session, &format!("\r\n{message}\r\n"));
+        emit_terminal_session(app, &session);
+    }
+
+    cleanup_interactive_shell(session_id);
+}
+
+fn spawn_stream_reader<R>(app: AppHandle, session_id: String, reader: R, stderr: bool)
+where
+    R: std::io::Read + Send + 'static,
+{
+    thread::spawn(move || {
+        let mut reader = reader;
+        let mut buffer = [0_u8; 4096];
+        let mut pending = String::new();
+
+        loop {
+            match reader.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(size) => {
+                    let chunk = String::from_utf8_lossy(&buffer[..size]).to_string();
+                    let _ = stderr;
+                    if let Err(error) = maybe_answer_password_prompt(&session_id, &chunk) {
+                        mark_interactive_session_failed(&app, &session_id, &error);
+                        return;
+                    }
+                    process_interactive_output(&app, &session_id, &mut pending, &chunk);
+                }
+                Err(error) => {
+                    mark_interactive_session_failed(
+                        &app,
+                        &session_id,
+                        &format!("[terminal stream error] {error}"),
+                    );
+                    return;
+                }
+            }
+        }
+
+        if !pending.is_empty() {
+            let trailing = pending.clone();
+            process_interactive_output(&app, &session_id, &mut pending, &trailing);
+        }
+    });
+}
+
+fn spawn_session_watcher(app: AppHandle, session_id: String) {
+    thread::spawn(move || loop {
+        thread::sleep(Duration::from_millis(400));
+
+        let status = {
+            let mut state = match runtime_state().lock() {
+                Ok(guard) => guard,
+                Err(_) => return,
+            };
+
+            let shell = match state.interactive_shells.get_mut(&session_id) {
+                Some(shell) => shell,
+                None => return,
+            };
+
+            match shell.child.try_wait() {
+                Ok(status) => status,
+                Err(error) => {
+                    drop(state);
+                    mark_interactive_session_failed(
+                        &app,
+                        &session_id,
+                        &format!("[terminal process error] {error}"),
+                    );
+                    return;
+                }
+            }
+        };
+
+        if let Some(status) = status {
+            let exit_code = status.exit_code();
+            let message = if exit_code == 0 {
+                "[session closed]".to_string()
+            } else {
+                format!("[session closed with exit {exit_code}]")
+            };
+
+            if let Ok(session) = update_session(&session_id, |session| {
+                session.connection_state = "failed".to_string();
+                session.open_line = false;
+                session.transcript.push(message.clone());
+            }) {
+                emit_terminal_chunk(&app, &session, &format!("\r\n{message}\r\n"));
+                emit_terminal_session(&app, &session);
+            }
+
+            cleanup_interactive_shell(&session_id);
+            return;
+        }
+    });
 }
 
 fn find_project_session(project_id: &str, preferred_session_id: Option<&str>) -> Result<RuntimeSession, String> {
@@ -438,11 +829,11 @@ fn temporary_path(prefix: &str, extension: &str) -> PathBuf {
 }
 
 fn local_known_hosts_sink() -> &'static str {
-    if cfg!(windows) {
-        "NUL"
-    } else {
-        "/dev/null"
-    }
+    "/dev/null"
+}
+
+fn local_ssh_config_sink() -> &'static str {
+    "/dev/null"
 }
 
 fn cleanup_temp_paths(paths: &[PathBuf]) {
@@ -473,55 +864,238 @@ fn create_private_key_file(secret: &str) -> Result<PathBuf, String> {
     Ok(path)
 }
 
-fn execute_ssh_command(server: &ServerConfigData, cwd: &str, command: &str) -> Result<CommandExecution, String> {
-    let remote_command = build_remote_command(server, cwd, command);
-    let mut ssh = Command::new("ssh");
-    let mut cleanup = Vec::new();
-
-    ssh.arg("-p")
-        .arg(server.port.to_string())
-        .arg("-o")
-        .arg("StrictHostKeyChecking=no")
-        .arg("-o")
-        .arg(format!("UserKnownHostsFile={}", local_known_hosts_sink()))
-        .arg("-o")
-        .arg("ConnectTimeout=20");
+fn build_ssh_command_spec(server: &ServerConfigData) -> Result<SshCommandSpec, String> {
+    let mut args = vec![
+        "-F".to_string(),
+        local_ssh_config_sink().to_string(),
+        "-p".to_string(),
+        server.port.to_string(),
+        "-o".to_string(),
+        "StrictHostKeyChecking=no".to_string(),
+        "-o".to_string(),
+        format!("UserKnownHostsFile={}", local_known_hosts_sink()),
+        "-o".to_string(),
+        "ConnectTimeout=20".to_string(),
+    ];
+    let mut envs = Vec::new();
+    let mut cleanup_paths = Vec::new();
+    let mut password = None;
 
     match server.auth_type.as_str() {
         "agent" => {
-            ssh.arg("-o").arg("PreferredAuthentications=publickey");
+            args.push("-o".to_string());
+            args.push("PreferredAuthentications=publickey".to_string());
         }
         "password" => {
             let secret = secure::read_secret(server.credential_ref.clone())?
                 .ok_or_else(|| format!("No password is stored for server '{}'.", server.name))?;
             let askpass_path = create_askpass_script(&secret)?;
-            ssh.arg("-o")
-                .arg("PreferredAuthentications=password,keyboard-interactive")
-                .arg("-o")
-                .arg("PubkeyAuthentication=no")
-                .stdin(Stdio::null())
-                .env("SSH_ASKPASS", &askpass_path)
-                .env("SSH_ASKPASS_REQUIRE", "force")
-                .env("PROJ_EYE_SSH_PASSWORD", secret);
+            args.push("-o".to_string());
+            args.push("PreferredAuthentications=password,keyboard-interactive".to_string());
+            args.push("-o".to_string());
+            args.push("PubkeyAuthentication=no".to_string());
+            envs.push((
+                "SSH_ASKPASS".to_string(),
+                askpass_path.to_string_lossy().to_string(),
+            ));
+            envs.push(("SSH_ASKPASS_REQUIRE".to_string(), "force".to_string()));
+            envs.push(("PROJ_EYE_SSH_PASSWORD".to_string(), secret.clone()));
             if !cfg!(windows) {
-                ssh.env("DISPLAY", "proj-eye:0");
+                envs.push(("DISPLAY".to_string(), "proj-eye:0".to_string()));
             }
-            cleanup.push(askpass_path);
+            cleanup_paths.push(askpass_path);
+            password = Some(secret);
         }
         _ => {
             let secret = secure::read_secret(server.credential_ref.clone())?
                 .ok_or_else(|| format!("No private key is stored for server '{}'.", server.name))?;
             let key_path = create_private_key_file(&secret)?;
-            ssh.arg("-i")
-                .arg(&key_path)
-                .arg("-o")
-                .arg("IdentitiesOnly=yes");
-            cleanup.push(key_path);
+            args.push("-i".to_string());
+            args.push(key_path.to_string_lossy().to_string());
+            args.push("-o".to_string());
+            args.push("IdentitiesOnly=yes".to_string());
+            cleanup_paths.push(key_path);
         }
     }
 
-    ssh.arg(format!("{}@{}", server.username, server.host))
-        .arg(remote_command);
+    args.push(format!("{}@{}", server.username, server.host));
+
+    Ok(SshCommandSpec {
+        args,
+        envs,
+        cleanup_paths,
+        password,
+    })
+}
+
+fn build_interactive_ssh_command_spec(server: &ServerConfigData) -> Result<SshCommandSpec, String> {
+    let mut args = vec![
+        "-F".to_string(),
+        local_ssh_config_sink().to_string(),
+        "-p".to_string(),
+        server.port.to_string(),
+        "-o".to_string(),
+        "StrictHostKeyChecking=no".to_string(),
+        "-o".to_string(),
+        format!("UserKnownHostsFile={}", local_known_hosts_sink()),
+        "-o".to_string(),
+        "ConnectTimeout=20".to_string(),
+        "-o".to_string(),
+        "NumberOfPasswordPrompts=1".to_string(),
+    ];
+    let mut cleanup_paths = Vec::new();
+    let mut password = None;
+
+    match server.auth_type.as_str() {
+        "agent" => {
+            args.push("-o".to_string());
+            args.push("PreferredAuthentications=publickey".to_string());
+        }
+        "password" => {
+            let secret = secure::read_secret(server.credential_ref.clone())?
+                .ok_or_else(|| format!("No password is stored for server '{}'.", server.name))?;
+            args.push("-o".to_string());
+            args.push("PreferredAuthentications=password,keyboard-interactive".to_string());
+            args.push("-o".to_string());
+            args.push("PubkeyAuthentication=no".to_string());
+            password = Some(secret);
+        }
+        _ => {
+            let secret = secure::read_secret(server.credential_ref.clone())?
+                .ok_or_else(|| format!("No private key is stored for server '{}'.", server.name))?;
+            let key_path = create_private_key_file(&secret)?;
+            args.push("-i".to_string());
+            args.push(key_path.to_string_lossy().to_string());
+            args.push("-o".to_string());
+            args.push("IdentitiesOnly=yes".to_string());
+            cleanup_paths.push(key_path);
+        }
+    }
+
+    args.push(format!("{}@{}", server.username, server.host));
+
+    Ok(SshCommandSpec {
+        args,
+        envs: Vec::new(),
+        cleanup_paths,
+        password,
+    })
+}
+
+fn prepare_ssh_command(server: &ServerConfigData) -> Result<(Command, Vec<PathBuf>), String> {
+    let spec = build_ssh_command_spec(server)?;
+    let mut ssh = Command::new("ssh");
+    ssh.args(&spec.args);
+    for (key, value) in &spec.envs {
+        ssh.env(key, value);
+    }
+    if spec.password.is_some() {
+        ssh.stdin(Stdio::null());
+    }
+
+    Ok((ssh, spec.cleanup_paths))
+}
+
+fn build_interactive_remote_command(server: &ServerConfigData, cwd: &str) -> String {
+    if server.os_type == "windows" {
+        let script = format!(
+            "Set-Location -LiteralPath {}; function prompt {{ Write-Output ('{}' + (Get-Location).Path); \"PS $((Get-Location).Path)> \" }}",
+            powershell_quote(cwd),
+            CWD_MARKER
+        );
+        format!(
+            "powershell -NoProfile -NoLogo -NoExit -Command {}",
+            powershell_quote(&script)
+        )
+    } else {
+        let cd_command = if cwd.trim().is_empty() {
+            "cd >/dev/null 2>&1 || exit 1".to_string()
+        } else {
+            format!("cd {} >/dev/null 2>&1 || exit 1", shell_quote(cwd))
+        };
+        let prompt_command = format!(
+            "alias ll='ls -alF'; alias la='ls -A'; alias l='ls -CF'; printf \"{}%s\\n\" \"$PWD\"",
+            CWD_MARKER
+        );
+        let script = format!(
+            "{cd_command}\nunset TMUX\nunset BASH_ENV\nunset ENV\nexport PROMPT_COMMAND={}\nexport PS1='\\u@\\h:\\w\\\\$ '\nexec env PROJ_EYE_INTERACTIVE=1 bash --noprofile --norc -i",
+            shell_quote(&prompt_command)
+        );
+        format!("sh -lc {}", shell_quote(&script))
+    }
+}
+
+fn spawn_interactive_ssh_session(
+    app: &AppHandle,
+    session: RuntimeSession,
+    server: &ServerConfigData,
+) -> Result<RuntimeSession, String> {
+    let remote_command = build_interactive_remote_command(server, &session.cwd);
+    let spec = build_interactive_ssh_command_spec(server)?;
+    let pty_system = native_pty_system();
+    let pair = pty_system
+        .openpty(PtySize {
+            rows: 32,
+            cols: 120,
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|error| format!("Unable to open a local PTY: {error}"))?;
+
+    let mut command = CommandBuilder::new("ssh");
+    let host = spec
+        .args
+        .last()
+        .cloned()
+        .ok_or_else(|| "Interactive SSH target is missing.".to_string())?;
+    let ssh_args = &spec.args[..spec.args.len().saturating_sub(1)];
+    command.args(ssh_args);
+    command.arg("-tt");
+    command.arg(host);
+    command.arg(&remote_command);
+    for (key, value) in &spec.envs {
+        command.env(key, value);
+    }
+
+    let child = pair
+        .slave
+        .spawn_command(command)
+        .map_err(|error| format!("Unable to start the interactive ssh session: {error}"))?;
+    let reader = pair
+        .master
+        .try_clone_reader()
+        .map_err(|error| format!("Unable to open the PTY reader: {error}"))?;
+    let writer = pair
+        .master
+        .take_writer()
+        .map_err(|error| format!("Unable to open the PTY writer: {error}"))?;
+    let writer = Arc::new(Mutex::new(writer));
+
+    let persisted = persist_session(session)?;
+    if let Err(error) = store_interactive_shell(
+        &persisted.id,
+        InteractiveShell {
+            child,
+            writer,
+            master: pair.master,
+            cleanup_paths: spec.cleanup_paths.clone(),
+            pending_password: spec.password.clone(),
+        },
+    ) {
+        cleanup_temp_paths(&spec.cleanup_paths);
+        return Err(error);
+    }
+
+    spawn_stream_reader(app.clone(), persisted.id.clone(), reader, false);
+    spawn_session_watcher(app.clone(), persisted.id.clone());
+
+    Ok(persisted)
+}
+
+fn execute_ssh_command(server: &ServerConfigData, cwd: &str, command: &str) -> Result<CommandExecution, String> {
+    let remote_command = build_remote_command(server, cwd, command);
+    let (mut ssh, cleanup) = prepare_ssh_command(server)?;
+    ssh.arg(remote_command);
 
     let output = ssh
         .output()
@@ -918,6 +1492,53 @@ fn classify_command_risk(command: &str) -> (&'static str, bool) {
     ("safe", false)
 }
 
+fn default_project_inspection_command(project: &ProjectConfigData, server: &ServerConfigData) -> String {
+    if server.os_type == "windows" {
+        if project.root_path.trim().is_empty() {
+            "Get-Location".to_string()
+        } else {
+            format!(
+                "Get-ChildItem -Force -LiteralPath {} | Select-Object -First 50",
+                powershell_quote(&project.root_path)
+            )
+        }
+    } else if project.root_path.trim().is_empty() {
+        "pwd".to_string()
+    } else {
+        format!("ls -la {}", shell_quote(&project.root_path))
+    }
+}
+
+fn normalize_ai_suggested_command(command: &str) -> Option<String> {
+    let trimmed = command.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let mut non_empty_lines = trimmed.lines().map(str::trim).filter(|line| !line.is_empty());
+    let first_line = non_empty_lines.next()?;
+    if non_empty_lines.next().is_some() {
+        return None;
+    }
+
+    if first_line.contains("&&")
+        || first_line.contains("||")
+        || first_line.contains(';')
+        || first_line.contains("$(")
+        || first_line.contains('`')
+        || first_line.contains('>')
+        || first_line.contains('<')
+    {
+        return None;
+    }
+
+    if first_line.matches('|').count() > 1 {
+        return None;
+    }
+
+    Some(first_line.to_string())
+}
+
 fn build_ai_suggestion(
     project: &ProjectConfigData,
     server: &ServerConfigData,
@@ -936,6 +1557,13 @@ fn build_ai_suggestion(
                 .into_iter()
                 .flatten(),
         )
+        .chain(
+            context
+                .get("commandOutputSnippet")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten(),
+        )
         .filter_map(Value::as_str)
         .collect::<Vec<_>>()
         .join(" ")
@@ -945,10 +1573,8 @@ fn build_ai_suggestion(
         primary_log_command(project, server)
     } else if let Some(health_check) = project.health_check_command.as_deref() {
         health_check.to_string()
-    } else if server.os_type == "windows" {
-        "Get-Process | Select-Object -First 20".to_string()
     } else {
-        format!("cd {} && ls -la", project.root_path)
+        default_project_inspection_command(project, server)
     };
 
     let (risk, blocked) = classify_command_risk(&suggested_command);
@@ -1122,6 +1748,7 @@ fn request_provider_chat(
                 .json(&json!({
                     "model": provider.model,
                     "temperature": 0.2,
+                    "max_tokens": AI_MAX_RESPONSE_TOKENS,
                     "messages": request_messages
                 }))
                 .send()
@@ -1155,7 +1782,7 @@ fn request_provider_chat(
                 .header("anthropic-version", "2023-06-01")
                 .json(&json!({
                     "model": provider.model,
-                    "max_tokens": 512,
+                    "max_tokens": AI_MAX_RESPONSE_TOKENS,
                     "system": system_prompt,
                     "messages": request_messages
                 }))
@@ -1201,7 +1828,10 @@ fn request_provider_chat(
                             }
                         ]
                     },
-                    "contents": contents
+                    "contents": contents,
+                    "generationConfig": {
+                        "maxOutputTokens": AI_MAX_RESPONSE_TOKENS
+                    }
                 }))
                 .send()
                 .and_then(|response| response.error_for_status())
@@ -1315,6 +1945,7 @@ fn parse_ai_model_reply(text: &str) -> Option<AiModelReply> {
     })
 }
 
+#[allow(dead_code)]
 fn build_ai_system_prompt(locale: &str) -> String {
     let target_language = if locale == "zh-CN" {
         "Simplified Chinese"
@@ -1327,6 +1958,7 @@ fn build_ai_system_prompt(locale: &str) -> String {
     )
 }
 
+#[allow(dead_code)]
 fn build_ai_context_message(
     project: &ProjectConfigData,
     server: &ServerConfigData,
@@ -1392,6 +2024,7 @@ fn build_ai_context_message(
     )
 }
 
+#[allow(dead_code)]
 fn build_ai_turn_request(locale: &str, prompt: Option<&str>) -> String {
     match prompt.map(str::trim).filter(|value| !value.is_empty()) {
         Some(user_prompt) => format!(
@@ -1445,6 +2078,7 @@ fn parse_ai_history(history: Option<&Value>) -> Vec<ProviderChatMessage> {
     messages
 }
 
+#[allow(dead_code)]
 fn finalize_ai_suggestion(
     project: &ProjectConfigData,
     server: &ServerConfigData,
@@ -1483,6 +2117,127 @@ fn finalize_ai_suggestion(
     })
 }
 
+fn build_ai_system_prompt_v2(locale: &str) -> String {
+    let target_language = if locale == "zh-CN" {
+        "Simplified Chinese"
+    } else {
+        "English"
+    };
+
+    format!(
+        "You are Proj-Eye, a concise operations assistant. Reply in {target_language}. Return only valid JSON with keys answer, suggestedCommand, and suggestionReason. answer must be concise, evidence-based, and under 4 sentences. If the context contains a non-empty 'Latest confirmed command output' section, treat it as the primary evidence and do not claim the result is missing. suggestedCommand must be exactly one non-destructive readonly shell command line. Do not chain commands with &&, ;, or ||. Avoid multi-step bundles. At most one pipe is allowed only when truncation or filtering is necessary. Prefer the smallest inspection command that resolves the next uncertainty. Do not wrap the JSON in markdown fences."
+    )
+}
+
+fn build_ai_context_message_v2(
+    project: &ProjectConfigData,
+    server: &ServerConfigData,
+    context: &Map<String, Value>,
+) -> String {
+    let join_lines = |key: &str| {
+        context
+            .get(key)
+            .and_then(Value::as_array)
+            .map(|lines| {
+                lines
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            })
+            .unwrap_or_default()
+    };
+    let command_output_lines = join_lines("commandOutputSnippet");
+    let terminal_lines = join_lines("terminalSnippet");
+    let log_lines = join_lines("logSnippet");
+    let database_summary = context
+        .get("databaseSummary")
+        .and_then(Value::as_array)
+        .map(|lines| {
+            lines
+                .iter()
+                .filter_map(Value::as_str)
+                .collect::<Vec<_>>()
+                .join(", ")
+        })
+        .unwrap_or_default();
+
+    format!(
+        "Current project context\nProject: {}\nServer: {}@{}:{} ({})\nRoot path: {}\nDatabases: {}\n\nLatest confirmed command output:\n{}\n\nRecent terminal:\n{}\n\nRecent logs:\n{}",
+        project.name,
+        server.username,
+        server.host,
+        server.port,
+        server.os_type,
+        project.root_path,
+        if database_summary.is_empty() {
+            "none".to_string()
+        } else {
+            database_summary
+        },
+        if command_output_lines.is_empty() {
+            "none".to_string()
+        } else {
+            command_output_lines
+        },
+        if terminal_lines.is_empty() {
+            "none".to_string()
+        } else {
+            terminal_lines
+        },
+        if log_lines.is_empty() {
+            "none".to_string()
+        } else {
+            log_lines
+        }
+    )
+}
+
+fn build_ai_turn_request_v2(prompt: Option<&str>) -> String {
+    match prompt.map(str::trim).filter(|value| !value.is_empty()) {
+        Some(user_prompt) => format!(
+            "Continue the same investigation. Base the answer on the newest confirmed command output when available.\n\nUser follow-up:\n{}",
+            user_prompt
+        ),
+        None => "Start a fresh triage pass. Summarize the most likely issue, the strongest evidence, and the next smallest safe readonly inspection command.".to_string(),
+    }
+}
+
+fn finalize_ai_suggestion_v2(
+    project: &ProjectConfigData,
+    server: &ServerConfigData,
+    context: &Map<String, Value>,
+    locale: &str,
+    suggested_command: Option<String>,
+    suggestion_reason: Option<String>,
+) -> Value {
+    let fallback = build_ai_suggestion(project, server, context, locale);
+    let Some(command) = suggested_command.and_then(|value| normalize_ai_suggested_command(&value)) else {
+        return fallback;
+    };
+
+    let (risk, blocked) = classify_command_risk(&command);
+    if blocked {
+        return fallback;
+    }
+
+    json!({
+        "id": create_id("cmd"),
+        "command": command,
+        "reason": suggestion_reason
+            .map(|value| value.trim().to_string())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| localized_text(
+                locale,
+                "先执行一条安全的只读检查，再根据结果继续缩小范围。",
+                "Run one safe readonly inspection command, then narrow the scope with the result.",
+            )),
+        "risk": risk,
+        "requiresConfirmation": true,
+        "blocked": false
+    })
+}
+
 fn build_ai_round_payload(
     app: &AppHandle,
     project_id: &str,
@@ -1495,18 +2250,78 @@ fn build_ai_round_payload(
     let context_object = object(&context)?;
     let locale = resolve_ui_locale(&config);
     let provider = resolve_provider(&config)?;
-    let system_prompt = build_ai_system_prompt(locale);
+    let system_prompt = build_ai_system_prompt_v2(locale);
+    let trace_id = context_object
+        .get("traceId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let mut messages = vec![ProviderChatMessage {
         role: "user".to_string(),
-        content: build_ai_context_message(&project, &server, context_object),
+        content: build_ai_context_message_v2(&project, &server, context_object),
     }];
     messages.extend(parse_ai_history(history.as_ref()));
     messages.push(ProviderChatMessage {
         role: "user".to_string(),
-        content: build_ai_turn_request(locale, prompt),
+        content: build_ai_turn_request_v2(prompt),
     });
 
-    let raw_response = request_provider_chat(&provider, &system_prompt, &messages)?;
+    let _ = diagnostics::append_timing_log(
+        app,
+        json!({
+            "source": "backend",
+            "traceId": if trace_id.is_empty() { Value::Null } else { json!(trace_id) },
+            "stage": "provider_request_start",
+            "projectId": project_id,
+            "eventKind": event_kind,
+            "providerName": provider.name,
+            "providerType": provider.provider_type,
+            "model": provider.model,
+            "historyCount": messages.len().saturating_sub(2),
+            "terminalLines": context_object.get("terminalSnippet").and_then(Value::as_array).map(|items| items.len()).unwrap_or(0),
+            "commandOutputLines": context_object.get("commandOutputSnippet").and_then(Value::as_array).map(|items| items.len()).unwrap_or(0),
+            "logLines": context_object.get("logSnippet").and_then(Value::as_array).map(|items| items.len()).unwrap_or(0)
+        }),
+    );
+
+    let provider_request_started_at = Instant::now();
+    let raw_response = match request_provider_chat(&provider, &system_prompt, &messages) {
+        Ok(response) => {
+            let _ = diagnostics::append_timing_log(
+                app,
+                json!({
+                    "source": "backend",
+                    "traceId": if trace_id.is_empty() { Value::Null } else { json!(trace_id) },
+                    "stage": "provider_request_done",
+                    "projectId": project_id,
+                    "eventKind": event_kind,
+                    "providerName": provider.name,
+                    "providerType": provider.provider_type,
+                    "model": provider.model,
+                    "durationMs": provider_request_started_at.elapsed().as_millis() as u64,
+                    "responseChars": response.len()
+                }),
+            );
+            response
+        }
+        Err(error) => {
+            let _ = diagnostics::append_timing_log(
+                app,
+                json!({
+                    "source": "backend",
+                    "traceId": if trace_id.is_empty() { Value::Null } else { json!(trace_id) },
+                    "stage": "provider_request_error",
+                    "projectId": project_id,
+                    "eventKind": event_kind,
+                    "providerName": provider.name,
+                    "providerType": provider.provider_type,
+                    "model": provider.model,
+                    "durationMs": provider_request_started_at.elapsed().as_millis() as u64,
+                    "error": error
+                }),
+            );
+            return Err(error);
+        }
+    };
     let parsed = parse_ai_model_reply(&raw_response);
     let assistant_content = parsed
         .as_ref()
@@ -1524,7 +2339,7 @@ fn build_ai_round_payload(
                 trimmed.to_string()
             }
         });
-    let suggestion = finalize_ai_suggestion(
+    let suggestion = finalize_ai_suggestion_v2(
         &project,
         &server,
         context_object,
@@ -1559,81 +2374,69 @@ fn build_ai_round_payload(
 }
 
 fn execute_command_for_session(
-    app: &AppHandle,
+    _app: &AppHandle,
     session_id: &str,
     command: &str,
 ) -> Result<Value, String> {
-    let snapshot = {
-        let state = runtime_state()
+    let updated = {
+        let mut state = runtime_state()
             .lock()
             .map_err(|_| "Runtime state lock was poisoned.".to_string())?;
-        state
-            .sessions
-            .get(session_id)
-            .cloned()
-            .ok_or_else(|| "Terminal session not found.".to_string())?
+        let RuntimeState {
+            sessions,
+            interactive_shells,
+        } = &mut *state;
+        let session = sessions
+            .get_mut(session_id)
+            .ok_or_else(|| "Terminal session not found.".to_string())?;
+        let shell = interactive_shells
+            .get_mut(session_id)
+            .ok_or_else(|| "Interactive shell is not available for this session.".to_string())?;
+
+        session.connection_state = "ready".to_string();
+
+        let mut writer = shell
+            .writer
+            .lock()
+            .map_err(|_| "Interactive shell writer lock was poisoned.".to_string())?;
+
+        writer
+            .write_all(format!("{command}\r").as_bytes())
+            .map_err(|error| format!("Unable to write to the interactive shell: {error}"))?;
+        writer
+            .flush()
+            .map_err(|error| format!("Unable to flush the interactive shell input: {error}"))?;
+
+        session.clone()
     };
 
-    let config = config::refresh(app)?;
-    let server = parse_server(
-        find_by_id(array(&config, "servers")?, &snapshot.server_id)
-            .ok_or_else(|| "Server configuration is missing for this session.".to_string())?,
-    )?;
-
-    let execution = execute_ssh_command(&server, &snapshot.cwd, command)?;
-    let exit_code = execution.exit_status.unwrap_or(0);
-    let transcript_lines = std::iter::once(format!("$ {command}"))
-        .chain(execution.lines)
-        .chain((exit_code != 0).then(|| format!("[exit {exit_code}]")))
-        .collect::<Vec<_>>();
-
-    let updated = update_session(session_id, |session| {
-        if let Some(next_cwd) = execution.cwd.clone().filter(|value| !value.is_empty()) {
-            session.cwd = next_cwd;
-        }
-        session.connection_state = "ready".to_string();
-        session.transcript.extend(transcript_lines.clone());
-    })?;
+    emit_terminal_session(_app, &updated);
 
     Ok(json!({
         "session": session_to_value(&updated),
-        "lines": transcript_lines
+        "lines": []
     }))
 }
 
 pub fn connect_project(app: &AppHandle, project_id: &str) -> Result<Value, String> {
     let (_, project, server) = load_project_context(app, project_id)?;
+    let tab_title = project.name.clone();
 
-    let handshake_command = if server.os_type == "windows" {
-        "Get-Location"
-    } else {
-        "pwd"
-    };
-    let handshake = execute_ssh_command(&server, &project.root_path, handshake_command)?;
-    let mut transcript = vec![
-        format!(
-            "Connected to {}@{}:{}",
-            server.username, server.host, server.port
-        ),
-        format!("cd {}", project.root_path),
-    ];
-    transcript.extend(handshake.lines);
-    if let Some(health_check) = project.health_check_command.as_deref() {
-        transcript.push(format!("Health check configured: {health_check}"));
-    }
-    transcript.push("Environment is ready.".to_string());
-
-    let session = persist_session(RuntimeSession {
+    let session = spawn_interactive_ssh_session(
+        app,
+        RuntimeSession {
         id: create_id("session"),
         project_id: project.id.clone(),
-        server_id: server.id.clone(),
         tab_id: create_id("tab"),
-        title: "shell".to_string(),
-        cwd: handshake.cwd.unwrap_or_else(|| project.root_path.clone()),
+        title: tab_title,
+        cwd: project.root_path.clone(),
         connection_state: "ready".to_string(),
-        transcript,
+        transcript: session_intro_transcript(&project, &server, &project.root_path, true, false),
+        open_line: false,
         started_at: now_ms(),
-    })?;
+        },
+        &server,
+    )?;
 
     let logs = match fetch_project_logs(&project, &server) {
         Ok(lines) => lines,
@@ -1646,7 +2449,7 @@ pub fn connect_project(app: &AppHandle, project_id: &str) -> Result<Value, Strin
 
     let payload = json!({
         "session": session_to_value(&session),
-        "tab": tab_to_value(&session, handshake_command, true),
+        "tab": tab_to_value(&session, "interactive-shell", true),
         "logs": logs
     });
 
@@ -1678,35 +2481,32 @@ pub fn create_terminal_tab(
     current_count: usize,
 ) -> Result<Value, String> {
     let (_, project, server) = load_project_context(app, project_id)?;
-    let probe_command = if server.os_type == "windows" {
-        "Get-Location"
+
+    let title = if current_count == 0 {
+        project.name.clone()
     } else {
-        "pwd"
+        format!("{} {}", project.name, current_count + 1)
     };
-    let probe = execute_ssh_command(&server, &project.root_path, probe_command)?;
 
-    let title = format!("shell-{}", current_count + 1);
-    let mut transcript = vec![format!(
-        "Connected to {}@{}:{}",
-        server.username, server.host, server.port
-    )];
-    transcript.extend(probe.lines);
-
-    let session = persist_session(RuntimeSession {
+    let session = spawn_interactive_ssh_session(
+        app,
+        RuntimeSession {
         id: create_id("session"),
         project_id: project.id.clone(),
-        server_id: server.id.clone(),
         tab_id: create_id("tab"),
         title: title.clone(),
-        cwd: probe.cwd.unwrap_or_else(|| project.root_path.clone()),
+        cwd: project.root_path.clone(),
         connection_state: "ready".to_string(),
-        transcript,
+        transcript: session_intro_transcript(&project, &server, &project.root_path, false, false),
+        open_line: false,
         started_at: now_ms(),
-    })?;
+        },
+        &server,
+    )?;
 
     let payload = json!({
         "session": session_to_value(&session),
-        "tab": tab_to_value(&session, probe_command, true)
+        "tab": tab_to_value(&session, "interactive-shell", true)
     });
 
     emit_runtime_event(
@@ -1732,6 +2532,112 @@ pub fn execute_session_command(
     }
 
     execute_command_for_session(app, session_id, command.trim())
+}
+
+pub fn write_session_input(_app: &AppHandle, session_id: &str, input: &str) -> Result<(), String> {
+    if input.is_empty() {
+        return Ok(());
+    }
+
+    let mut state = runtime_state()
+        .lock()
+        .map_err(|_| "Runtime state lock was poisoned.".to_string())?;
+    let shell = state
+        .interactive_shells
+        .get_mut(session_id)
+        .ok_or_else(|| "Interactive shell is not available for this session.".to_string())?;
+
+    let mut writer = shell
+        .writer
+        .lock()
+        .map_err(|_| "Interactive shell writer lock was poisoned.".to_string())?;
+
+    writer
+        .write_all(input.as_bytes())
+        .map_err(|error| format!("Unable to write terminal input: {error}"))?;
+    writer
+        .flush()
+        .map_err(|error| format!("Unable to flush terminal input: {error}"))?;
+
+    Ok(())
+}
+
+pub fn resize_session(_app: &AppHandle, session_id: &str, cols: u16, rows: u16) -> Result<(), String> {
+    let mut state = runtime_state()
+        .lock()
+        .map_err(|_| "Runtime state lock was poisoned.".to_string())?;
+    let shell = state
+        .interactive_shells
+        .get_mut(session_id)
+        .ok_or_else(|| "Interactive shell is not available for this session.".to_string())?;
+
+    shell
+        .master
+        .resize(PtySize {
+            rows: rows.max(2),
+            cols: cols.max(20),
+            pixel_width: 0,
+            pixel_height: 0,
+        })
+        .map_err(|error| format!("Unable to resize the terminal PTY: {error}"))?;
+
+    Ok(())
+}
+
+pub fn close_session(_app: &AppHandle, session_id: &str) -> Result<Value, String> {
+    let session = remove_session(session_id)?
+        .ok_or_else(|| "Terminal session not found.".to_string())?;
+    cleanup_interactive_shell(session_id);
+
+    Ok(json!({
+        "sessionId": session.id,
+        "tabId": session.tab_id,
+        "projectId": session.project_id
+    }))
+}
+
+pub fn reconnect_session(app: &AppHandle, session_id: &str) -> Result<Value, String> {
+    let snapshot = {
+        let state = runtime_state()
+            .lock()
+            .map_err(|_| "Runtime state lock was poisoned.".to_string())?;
+        state
+            .sessions
+            .get(session_id)
+            .cloned()
+            .ok_or_else(|| "Terminal session not found.".to_string())?
+    };
+
+    let (_config, project, server) = load_project_context(app, &snapshot.project_id)?;
+    cleanup_interactive_shell(session_id);
+    let _ = remove_session(session_id)?;
+
+    let reconnect_cwd = if snapshot.cwd.trim().is_empty() {
+        project.root_path.clone()
+    } else {
+        snapshot.cwd.clone()
+    };
+
+    let session = spawn_interactive_ssh_session(
+        app,
+        RuntimeSession {
+            id: create_id("session"),
+            project_id: snapshot.project_id.clone(),
+            tab_id: snapshot.tab_id.clone(),
+            title: snapshot.title.clone(),
+            cwd: reconnect_cwd.clone(),
+            connection_state: "ready".to_string(),
+            transcript: session_intro_transcript(&project, &server, &reconnect_cwd, false, true),
+            open_line: false,
+            started_at: now_ms(),
+        },
+        &server,
+    )?;
+
+    Ok(json!({
+        "session": session_to_value(&session),
+        "tab": tab_to_value(&session, "interactive-shell", true)
+    }))
 }
 
 pub fn refresh_project_logs(app: &AppHandle, project_id: &str) -> Result<Vec<Value>, String> {

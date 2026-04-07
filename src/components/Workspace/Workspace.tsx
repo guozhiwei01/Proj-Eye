@@ -34,14 +34,13 @@ export default function Workspace({
 }: WorkspaceProps) {
   const allTabs = useWorkspaceStore((state) => state.terminalTabs);
   const sessions = useWorkspaceStore((state) => state.sessions);
-  const metrics = useWorkspaceStore((state) => state.metrics);
-  const commandDrafts = useWorkspaceStore((state) => state.commandDrafts);
-  const commandErrors = useWorkspaceStore((state) => state.commandErrors);
-  const commandBusy = useWorkspaceStore((state) => state.commandBusy);
+  const terminalBuffers = useWorkspaceStore((state) => state.terminalBuffers);
   const setActiveTab = useWorkspaceStore((state) => state.setActiveTab);
   const addTab = useWorkspaceStore((state) => state.addTab);
-  const setCommandDraft = useWorkspaceStore((state) => state.setCommandDraft);
-  const executeCommand = useWorkspaceStore((state) => state.executeCommand);
+  const closeTab = useWorkspaceStore((state) => state.closeTab);
+  const writeTerminalInput = useWorkspaceStore((state) => state.writeTerminalInput);
+  const resizeTerminal = useWorkspaceStore((state) => state.resizeTerminal);
+  const reconnectSession = useWorkspaceStore((state) => state.reconnectSession);
   const toggleBottomPanel = usePanelsStore((state) => state.toggleBottomPanel);
   const toggleAiOverlay = usePanelsStore((state) => state.toggleAiOverlay);
   const setAiOverlay = usePanelsStore((state) => state.setAiOverlay);
@@ -65,23 +64,33 @@ export default function Workspace({
       />
       <AlertStrip alert={alert} onInvestigate={() => setAiOverlay(true)} />
       <div className="space-y-3 rounded-[2rem] border border-[var(--border)] bg-[var(--bg2)]/60 p-4">
-        <TerminalTabs tabs={terminalTabs} onSelect={setActiveTab} onCreateTab={createNewTab} />
+        <div className="box-border h-[30px] min-h-[30px] max-h-[30px] overflow-hidden rounded-[0.625rem] border border-white/8 bg-[#17191c]">
+          <TerminalTabs
+            tabs={terminalTabs}
+            projectName={project.name}
+            onSelect={setActiveTab}
+            onCloseTab={(tabId) => {
+              void closeTab(tabId);
+            }}
+          />
+        </div>
         <TerminalPane
           project={project}
-          alert={alert}
           session={activeSession}
-          metrics={metrics}
-          commandDraft={activeSession ? commandDrafts[activeSession.id] ?? "" : ""}
-          commandError={activeSession ? commandErrors[activeSession.id] ?? null : null}
-          commandBusy={activeSession ? Boolean(commandBusy[activeSession.id]) : false}
-          onCommandChange={(value) => {
+          terminalBuffer={activeSession ? terminalBuffers[activeSession.id] ?? "" : ""}
+          onInput={(data) => {
             if (activeSession) {
-              setCommandDraft(activeSession.id, value);
+              void writeTerminalInput(activeSession.id, data);
             }
           }}
-          onCommandRun={() => {
+          onResize={(cols, rows) => {
             if (activeSession) {
-              void executeCommand(activeSession.id);
+              void resizeTerminal(activeSession.id, cols, rows);
+            }
+          }}
+          onReconnect={() => {
+            if (activeSession) {
+              void reconnectSession(activeSession.id);
             }
           }}
         />

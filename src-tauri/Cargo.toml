@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Project-first AI operations desktop app"
 authors = ["Proj-Eye"]
 edition = "2021"
+default-run = "proj-eye"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -30,3 +31,4 @@ mysql = { version = "28", default-features = false, features = ["default-rust"] 
 redis = "0.32"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
 url = "2"
+portable-pty = "0.9.0"
