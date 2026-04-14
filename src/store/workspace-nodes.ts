@@ -2,7 +2,6 @@ import { create } from "zustand";
 import {
   WorkspaceNode,
   WorkspaceNodeId,
-  WorkspaceNodeKind,
   WorkspaceNodeState,
   NodeSessionBinding,
 } from "../types/workspace";

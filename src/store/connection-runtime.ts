@@ -17,6 +17,8 @@ interface ConnectionRuntimeStore {
 
   // 操作
   register: (projectId: string) => Promise<ConnectionContext>;
+  createConnection: (context: Partial<ConnectionContext> & { projectId: string }) => Promise<void>;
+  updateConnection: (projectId: string, updates: Partial<ConnectionContext>) => Promise<void>;
   get: (projectId: string) => Promise<ConnectionContext | null>;
   updateState: (projectId: string, state: ConnectionState) => Promise<void>;
   setError: (projectId: string, error: string) => Promise<void>;
@@ -60,6 +62,47 @@ export const useConnectionRuntime = create<ConnectionRuntimeStore>((set, get) =>
     }
   },
 
+  createConnection: async (context) => {
+    try {
+      const fullContext: ConnectionContext = {
+        projectId: context.projectId,
+        serverId: context.serverId,
+        databaseId: context.databaseId,
+        primarySessionId: context.primarySessionId,
+        sessionIds: context.sessionIds || [],
+        nodeIds: context.nodeIds || [],
+        state: context.state || 'idle',
+        lastError: context.lastError,
+        lastConnectedAt: context.lastConnectedAt,
+        health: context.health || {
+          successCount: 0,
+          failureCount: 0,
+          healthStatus: 'unknown',
+        },
+        createdAt: context.createdAt || Date.now(),
+        updatedAt: context.updatedAt || Date.now(),
+      };
+      get()._updateLocal(fullContext);
+    } catch (error) {
+      console.error("Failed to create connection:", error);
+      throw error;
+    }
+  },
+
+  updateConnection: async (projectId, updates) => {
+    try {
+      const connections = new Map(get().connections);
+      const existing = connections.get(projectId);
+      if (existing) {
+        connections.set(projectId, { ...existing, ...updates, updatedAt: Date.now() });
+        set({ connections });
+      }
+    } catch (error) {
+      console.error("Failed to update connection:", error);
+      throw error;
+    }
+  },
+
   get: async (projectId: string) => {
     try {
       const context = await backend.connectionGet(projectId);
@@ -94,7 +137,7 @@ export const useConnectionRuntime = create<ConnectionRuntimeStore>((set, get) =>
       const connections = new Map(get().connections);
       const existing = connections.get(projectId);
       if (existing) {
-        connections.set(projectId, { ...existing, error: error });
+        connections.set(projectId, { ...existing, lastError: error });
         set({ connections });
       }
     } catch (err) {
@@ -109,7 +152,11 @@ export const useConnectionRuntime = create<ConnectionRuntimeStore>((set, get) =>
       const connections = new Map(get().connections);
       const existing = connections.get(projectId);
       if (existing) {
-        connections.set(projectId, { ...existing, session_id: sessionId });
+        connections.set(projectId, {
+          ...existing,
+          sessionIds: [...existing.sessionIds, sessionId],
+          primarySessionId: existing.primarySessionId || sessionId,
+        });
         set({ connections });
       }
     } catch (error) {
@@ -217,7 +264,7 @@ export const useConnectionRuntime = create<ConnectionRuntimeStore>((set, get) =>
       get()._setLoading(true);
       const contexts = await backend.connectionListAll();
       const connections = new Map<string, ConnectionContext>();
-      contexts.forEach(ctx => connections.set(ctx.project_id, ctx));
+      contexts.forEach(ctx => connections.set(ctx.projectId, ctx));
       set({ connections });
       return contexts;
     } catch (error) {
@@ -262,7 +309,7 @@ export const useConnectionRuntime = create<ConnectionRuntimeStore>((set, get) =>
   _updateLocal: (context: ConnectionContext) => {
     set(state => {
       const connections = new Map(state.connections);
-      connections.set(context.project_id, context);
+      connections.set(context.projectId, context);
       return { connections };
     });
   },

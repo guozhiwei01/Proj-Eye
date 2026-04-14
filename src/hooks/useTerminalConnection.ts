@@ -22,7 +22,6 @@ interface UseTerminalConnectionOptions {
   projectId: string;
   session: SessionSummary | null;
   tab: TerminalTab | null;
-  terminalBuffer: string;
   onReconnectComplete?: () => void;
 }
 
@@ -38,13 +37,12 @@ export function useTerminalConnection({
   projectId,
   session,
   tab,
-  terminalBuffer,
   onReconnectComplete,
 }: UseTerminalConnectionOptions): TerminalConnectionResult {
-  const { connections, create: createConnection, update: updateConnection } = useConnectionRuntime();
-  const { sessions: sessionRegistry, register: registerSession, touch: touchSession } = useSessionRegistry();
-  const { nodes, registerNode, bindNodeSession, getNodeBySession } = useWorkspaceNodes();
-  const { create: createSnapshot, get: getSnapshot } = useSnapshotStore();
+  const { connections, createConnection, updateConnection } = useConnectionRuntime();
+  const sessionRegistry = useSessionRegistry();
+  const { registerNode, bindNodeToSession, getNodeBySessionId } = useWorkspaceNodes();
+  const snapshotStore = useSnapshotStore();
 
   const nodeIdRef = useRef<string | null>(null);
   const lastSessionIdRef = useRef<string | null>(null);
@@ -53,43 +51,43 @@ export function useTerminalConnection({
   useEffect(() => {
     if (!tab || !session) return;
 
-    const existingNode = getNodeBySession(session.id);
+    const existingNode = getNodeBySessionId(session.id);
     if (existingNode) {
       nodeIdRef.current = existingNode.id;
       return;
     }
 
     // 创建新的 workspace node
-    const nodeId = registerNode({
-      kind: 'terminal',
-      label: tab.label || `Terminal ${tab.index + 1}`,
-      metadata: {
-        tabId: tab.id,
-        projectId,
-      },
-    });
+    const newNode = {
+      id: `terminal-${tab.id}-${Date.now()}`,
+      projectId,
+      kind: 'terminal' as const,
+      title: tab.title || `Terminal ${tab.active ? 'Active' : ''}`,
+      state: 'active' as const,
+      backingSessionId: session.id,
+      tabId: tab.id,
+      cwd: session.cwd,
+      createdAt: Date.now(),
+      lastActiveAt: Date.now(),
+    };
 
-    nodeIdRef.current = nodeId;
+    registerNode(newNode);
+    nodeIdRef.current = newNode.id;
 
     // 绑定 session 到 node
     if (session.id) {
-      bindNodeSession(nodeId, session.id).catch(console.error);
+      bindNodeToSession(newNode.id, session.id);
     }
-  }, [tab?.id, session?.id, projectId, registerNode, bindNodeSession, getNodeBySession]);
+  }, [tab?.id, session?.id, projectId, registerNode, bindNodeToSession, getNodeBySessionId]);
 
   // 2. 注册 session 到 SessionRegistry
   useEffect(() => {
     if (!session) return;
 
-    registerSession({
-      sessionId: session.id,
-      projectId: session.projectId,
-      createdAt: Date.now(),
-      lastActiveAt: Date.now(),
-    }).catch(console.error);
+    sessionRegistry.register(session.id, session.projectId).catch(console.error);
 
     lastSessionIdRef.current = session.id;
-  }, [session?.id, session?.projectId, registerSession]);
+  }, [session?.id, session?.projectId, sessionRegistry]);
 
   // 3. 确保 ConnectionContext 存在
   useEffect(() => {
@@ -139,40 +137,35 @@ export function useTerminalConnection({
     if (!session) return;
 
     const interval = setInterval(() => {
-      touchSession(session.id).catch(console.error);
+      sessionRegistry.touch(session.id).catch(console.error);
     }, 30000); // 每 30 秒
 
     return () => clearInterval(interval);
-  }, [session?.id, touchSession]);
+  }, [session?.id, sessionRegistry]);
 
   // 6. 创建快照（用于重连）
   const handleCreateSnapshot = useCallback(
-    async (terminalState: TerminalState) => {
-      if (!session || !nodeIdRef.current) return;
+    async (_terminalState: TerminalState) => {
+      if (!session || !nodeIdRef.current || !tab) return;
 
-      const connection = connections.get(projectId);
-      if (!connection) return;
-
-      const snapshotId = `snapshot-${projectId}-${Date.now()}`;
-
-      await createSnapshot({
-        snapshotId,
-        projectId,
-        sessionId: session.id,
-        connectionState: connection.state,
-        terminalState,
-        createdAt: Date.now(),
-        expiresAt: Date.now() + 3600000, // 1 小时后过期
+      await snapshotStore.saveSnapshot(projectId, 'disconnect', {
+        activeNodeIds: [nodeIdRef.current],
+        terminalTabs: [{
+          nodeId: nodeIdRef.current,
+          title: session.title,
+          cwd: session.cwd,
+          index: 0,
+        }],
       });
     },
-    [session, projectId, connections, createSnapshot]
+    [session, tab, projectId, snapshotStore]
   );
 
   // 7. 从快照恢复
   const handleRestoreFromSnapshot = useCallback(
     async (snapshotId: string): Promise<TerminalState | null> => {
-      const snapshot = await getSnapshot(snapshotId);
-      if (!snapshot || !snapshot.terminalState) {
+      const snapshot = await snapshotStore.getSnapshot(snapshotId);
+      if (!snapshot?.terminalTabs?.[0]) {
         return null;
       }
 
@@ -180,9 +173,15 @@ export function useTerminalConnection({
         onReconnectComplete();
       }
 
-      return snapshot.terminalState;
+      // Return a default terminal state since the snapshot doesn't store it
+      return {
+        cols: 80,
+        rows: 24,
+        scrollbackLines: [],
+        cursorPosition: [0, 0],
+      };
     },
-    [getSnapshot, onReconnectComplete]
+    [snapshotStore, onReconnectComplete]
   );
 
   // 获取当前连接状态

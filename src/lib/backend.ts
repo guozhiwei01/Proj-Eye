@@ -24,9 +24,6 @@ import type {
 import type { ConnectionContext, ConnectionState, SessionMetadata } from "../types/connection";
 import { localBackend } from "./local-backend";
 
-// Re-export snapshot types for convenience
-export type { ReconnectSnapshot, TerminalState, CreateSnapshotOptions, RestoreSnapshotResult } from "../types/snapshot";
-
 let backendMode: "unknown" | "tauri" | "local" = "unknown";
 
 function mirrorConfigSnapshot(config: AppConfigBundle): AppConfigBundle {
@@ -517,87 +514,87 @@ export async function connectionRegister(projectId: string): Promise<ConnectionC
 }
 
 export async function connectionGet(projectId: string): Promise<ConnectionContext | null> {
-  return withBackend("connection_get", { projectId }, () => null);
+  return withBackend("connection_get", { projectId }, async () => null);
 }
 
 export async function connectionUpdateState(projectId: string, state: ConnectionState): Promise<void> {
-  return withBackend("connection_update_state", { projectId, state }, () => {});
+  return withBackend("connection_update_state", { projectId, state }, async () => {});
 }
 
 export async function connectionSetError(projectId: string, error: string): Promise<void> {
-  return withBackend("connection_set_error", { projectId, error }, () => {});
+  return withBackend("connection_set_error", { projectId, error }, async () => {});
 }
 
 export async function connectionBindSession(projectId: string, sessionId: string): Promise<void> {
-  return withBackend("connection_bind_session", { projectId, sessionId }, () => {});
+  return withBackend("connection_bind_session", { projectId, sessionId }, async () => {});
 }
 
 export async function connectionUnbindSession(projectId: string, sessionId: string): Promise<void> {
-  return withBackend("connection_unbind_session", { projectId, sessionId }, () => {});
+  return withBackend("connection_unbind_session", { projectId, sessionId }, async () => {});
 }
 
 export async function connectionAddNode(projectId: string, nodeId: string): Promise<void> {
-  return withBackend("connection_add_node", { projectId, nodeId }, () => {});
+  return withBackend("connection_add_node", { projectId, nodeId }, async () => {});
 }
 
 export async function connectionRemoveNode(projectId: string, nodeId: string): Promise<void> {
-  return withBackend("connection_remove_node", { projectId, nodeId }, () => {});
+  return withBackend("connection_remove_node", { projectId, nodeId }, async () => {});
 }
 
 export async function connectionRecordSuccess(projectId: string, latencyMs?: number): Promise<void> {
-  return withBackend("connection_record_success", { projectId, latencyMs }, () => {});
+  return withBackend("connection_record_success", { projectId, latencyMs }, async () => {});
 }
 
 export async function connectionUpdateHealthCheck(projectId: string): Promise<void> {
-  return withBackend("connection_update_health_check", { projectId }, () => {});
+  return withBackend("connection_update_health_check", { projectId }, async () => {});
 }
 
 export async function connectionListWithActiveNodes(): Promise<ConnectionContext[]> {
-  return withBackend("connection_list_with_active_nodes", {}, () => []);
+  return withBackend("connection_list_with_active_nodes", {}, async () => []);
 }
 
 export async function connectionListByServer(serverId: string): Promise<ConnectionContext[]> {
-  return withBackend("connection_list_by_server", { serverId }, () => []);
+  return withBackend("connection_list_by_server", { serverId }, async () => []);
 }
 
 export async function connectionRemove(projectId: string): Promise<ConnectionContext | null> {
-  return withBackend("connection_remove", { projectId }, () => null);
+  return withBackend("connection_remove", { projectId }, async () => null);
 }
 
 export async function connectionListAll(): Promise<ConnectionContext[]> {
-  return withBackend("connection_list_all", {}, () => []);
+  return withBackend("connection_list_all", {}, async () => []);
 }
 
 export async function connectionListByState(state: ConnectionState): Promise<ConnectionContext[]> {
-  return withBackend("connection_list_by_state", { state }, () => []);
+  return withBackend("connection_list_by_state", { state }, async () => []);
 }
 
 export async function sessionRegister(sessionId: string, projectId: string): Promise<void> {
-  return withBackend("session_register", { sessionId, projectId }, () => {});
+  return withBackend("session_register", { sessionId, projectId }, async () => {});
 }
 
 export async function sessionGet(sessionId: string): Promise<SessionMetadata | null> {
-  return withBackend("session_get", { sessionId }, () => null);
+  return withBackend("session_get", { sessionId }, async () => null);
 }
 
 export async function sessionTouch(sessionId: string): Promise<void> {
-  return withBackend("session_touch", { sessionId }, () => {});
+  return withBackend("session_touch", { sessionId }, async () => {});
 }
 
 export async function sessionListByProject(projectId: string): Promise<SessionMetadata[]> {
-  return withBackend("session_list_by_project", { projectId }, () => []);
+  return withBackend("session_list_by_project", { projectId }, async () => []);
 }
 
 export async function sessionRemove(sessionId: string): Promise<SessionMetadata | null> {
-  return withBackend("session_remove", { sessionId }, () => null);
+  return withBackend("session_remove", { sessionId }, async () => null);
 }
 
 export async function sessionRemoveByProject(projectId: string): Promise<SessionMetadata[]> {
-  return withBackend("session_remove_by_project", { projectId }, () => []);
+  return withBackend("session_remove_by_project", { projectId }, async () => []);
 }
 
 export async function sessionCountByProject(projectId: string): Promise<number> {
-  return withBackend("session_count_by_project", { projectId }, () => 0);
+  return withBackend("session_count_by_project", { projectId }, async () => 0);
 }
 
 // ============================================================================
@@ -655,16 +652,16 @@ export async function snapshotSave(
       lastAiPrompt: options.lastAiPrompt,
       lastConnectionState: options.lastConnectionState || "unknown",
     },
-    () => {}
+    async () => {}
   );
 }
 
 export async function snapshotGet(projectId: string): Promise<ReconnectSnapshot | null> {
-  return withBackend("snapshot_get", { projectId }, () => null);
+  return withBackend("snapshot_get", { projectId }, async () => null);
 }
 
 export async function snapshotRemove(projectId: string): Promise<ReconnectSnapshot | null> {
-  return withBackend("snapshot_remove", { projectId }, () => null);
+  return withBackend("snapshot_remove", { projectId }, async () => null);
 }
 
 export async function snapshotListAll(): Promise<ReconnectSnapshot[]> {
@@ -673,11 +670,11 @@ export async function snapshotListAll(): Promise<ReconnectSnapshot[]> {
   return [];
 }
 
-export async function snapshotListValid(maxAgeMs: number): Promise<ReconnectSnapshot[]> {
+export async function snapshotListValid(_maxAgeMs: number): Promise<ReconnectSnapshot[]> {
   // Similar to above - would need to track projects separately
   return [];
 }
 
 export async function snapshotCleanupExpired(maxAgeMs: number): Promise<number> {
-  return withBackend("snapshot_cleanup_expired", { maxAgeMs }, () => 0);
+  return withBackend("snapshot_cleanup_expired", { maxAgeMs }, async () => 0);
 }

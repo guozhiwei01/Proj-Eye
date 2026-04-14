@@ -12,12 +12,12 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { useConnectionRuntime } from '../store/connection-runtime';
 import { useWorkspaceNodes } from '../store/workspace-nodes';
-import type { LogChunk } from '../types/models';
+import type { LogChunk, LogSource } from '../types/models';
 import { ConnectionState } from '../types/connection';
 
 interface UseLogsConnectionOptions {
   projectId: string;
-  logSources: Array<{ id: string; label: string; path: string }>;
+  logSources: LogSource[];
   logs: LogChunk[];
   isActive: boolean;
 }
@@ -36,8 +36,8 @@ export function useLogsConnection({
   logs,
   isActive,
 }: UseLogsConnectionOptions): LogsConnectionResult {
-  const { connections, create: createConnection, update: updateConnection, recordSuccess } = useConnectionRuntime();
-  const { nodes, registerNode, updateNode } = useWorkspaceNodes();
+  const { connections, createConnection, updateConnection, recordSuccess } = useConnectionRuntime();
+  const { nodes, registerNode } = useWorkspaceNodes();
 
   const nodeIdRef = useRef<string | null>(null);
   const activeSourcesRef = useRef<Set<string>>(new Set());
@@ -48,7 +48,7 @@ export function useLogsConnection({
 
     // 查找现有的 logs node
     const existingNode = Array.from(nodes.values()).find(
-      (node) => node.kind === 'logs' && node.metadata?.projectId === projectId
+      (node) => node.kind === 'logs' && node.projectId === projectId
     );
 
     if (existingNode) {
@@ -57,29 +57,21 @@ export function useLogsConnection({
     }
 
     // 创建新的 workspace node
-    const nodeId = registerNode({
-      kind: 'logs',
-      label: 'Logs',
-      metadata: {
-        projectId,
-        logSources: logSources.map(s => s.id),
-      },
-    });
+    const newNode = {
+      id: `logs-${projectId}-${Date.now()}`,
+      projectId,
+      kind: 'logs' as const,
+      title: 'Logs',
+      state: 'active' as const,
+      createdAt: Date.now(),
+      lastActiveAt: Date.now(),
+    };
 
-    nodeIdRef.current = nodeId;
+    registerNode(newNode);
+    nodeIdRef.current = newNode.id;
   }, [isActive, projectId, logSources, nodes, registerNode]);
 
-  // 2. 更新 node 的 log sources
-  useEffect(() => {
-    if (!nodeIdRef.current || !isActive) return;
-
-    updateNode(nodeIdRef.current, {
-      metadata: {
-        projectId,
-        logSources: logSources.map(s => s.id),
-      },
-    }).catch(console.error);
-  }, [logSources, projectId, isActive, updateNode]);
+  // 2. 更新 node 的 log sources (removed - not needed for now)
 
   // 3. 确保 ConnectionContext 存在
   useEffect(() => {
@@ -116,7 +108,7 @@ export function useLogsConnection({
     const recentSources = new Set(
       logs
         .slice(-10) // 只看最近 10 条
-        .map(log => log.source)
+        .map(log => log.sourceId)
         .filter(Boolean)
     );
 

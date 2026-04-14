@@ -11,7 +11,8 @@ export type ConnectionState =
   | "active"
   | "degraded"
   | "reconnecting"
-  | "closed";
+  | "closed"
+  | "failed";
 
 export const ConnectionState = {
   Idle: "idle" as ConnectionState,
@@ -20,7 +21,10 @@ export const ConnectionState = {
   Degraded: "degraded" as ConnectionState,
   Reconnecting: "reconnecting" as ConnectionState,
   Closed: "closed" as ConnectionState,
+  Failed: "failed" as ConnectionState,
 };
+
+export type HealthStatus = "healthy" | "degraded" | "unhealthy" | "unknown";
 
 /**
  * Connection health metrics
@@ -30,7 +34,7 @@ export interface ConnectionHealth {
   failureCount: number;
   avgLatencyMs?: number;
   lastCheckAt?: number;
-  isHealthy: boolean;
+  healthStatus: HealthStatus;
 }
 
 export interface ConnectionContext {
@@ -49,8 +53,8 @@ export interface ConnectionContext {
 }
 
 export interface SessionMetadata {
-  sessionId: string;
-  projectId: string;
-  createdAt: number;
-  lastActiveAt: number;
+  session_id: string;
+  project_id: string;
+  created_at: number;
+  last_active: number;
 }

@@ -132,12 +132,17 @@ export default function EnhancedTerminalPane({
     connectionState,
     isHealthy,
     createSnapshot,
-    restoreFromSnapshot,
   } = useTerminalConnection({
     projectId: project.id,
     session,
-    tab: tabId ? { id: tabId, index: tabIndex, label: `Terminal ${tabIndex + 1}` } : null,
-    terminalBuffer,
+    tab: tabId ? {
+      id: tabId,
+      projectId: project.id,
+      title: `Terminal ${tabIndex + 1}`,
+      command: '',
+      active: true,
+      sessionId: session?.id || '',
+    } : null,
     onReconnectComplete: () => {
       console.log('Reconnect completed for terminal', { projectId: project.id, nodeId });
     },
