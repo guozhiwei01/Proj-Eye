@@ -1,4 +1,5 @@
 mod commands;
+mod runtime;
 mod store;
 
 use tauri::Manager;
@@ -58,7 +59,40 @@ pub fn run() {
             commands::ai_confirm_suggested_command,
             commands::ai_validate_provider,
             commands::diag_append_timing_log,
-            commands::diag_get_timing_log_path
+            commands::diag_get_timing_log_path,
+            commands::workspace_register_node,
+            commands::workspace_bind_node_session,
+            commands::workspace_get_session_by_node,
+            commands::workspace_get_node_by_session,
+            commands::workspace_update_node_state,
+            commands::connection_register,
+            commands::connection_get,
+            commands::connection_update_state,
+            commands::connection_set_error,
+            commands::connection_bind_session,
+            commands::connection_unbind_session,
+            commands::connection_add_node,
+            commands::connection_remove_node,
+            commands::connection_record_success,
+            commands::connection_update_health_check,
+            commands::connection_remove,
+            commands::connection_list_all,
+            commands::connection_list_by_state,
+            commands::connection_list_with_active_nodes,
+            commands::connection_list_by_server,
+            commands::session_register,
+            commands::session_get,
+            commands::session_touch,
+            commands::session_list_by_project,
+            commands::session_remove,
+            commands::session_remove_by_project,
+            commands::session_count_by_project,
+            commands::snapshot_create,
+            commands::snapshot_get,
+            commands::snapshot_restore,
+            commands::snapshot_remove,
+            commands::snapshot_list_by_project,
+            commands::snapshot_cleanup_expired
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

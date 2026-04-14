@@ -21,7 +21,11 @@ import type {
   SessionSummary,
   TerminalTab,
 } from "../types/models";
+import type { ConnectionContext, ConnectionState, SessionMetadata } from "../types/connection";
 import { localBackend } from "./local-backend";
+
+// Re-export snapshot types for convenience
+export type { ReconnectSnapshot, TerminalState, CreateSnapshotOptions, RestoreSnapshotResult } from "../types/snapshot";
 
 let backendMode: "unknown" | "tauri" | "local" = "unknown";
 
@@ -408,4 +412,272 @@ export async function inspectCredentialRef(ref?: string | null): Promise<boolean
 
 export function getResolvedBackendMode(): "unknown" | "tauri" | "local" {
   return backendMode;
+}
+
+// Workspace Node API
+export async function registerWorkspaceNode(
+  nodeId: string,
+  projectId: string,
+  kind: string,
+): Promise<void> {
+  if (backendMode === "local") {
+    return;
+  }
+
+  try {
+    await callTauri<void>("workspace_register_node", { nodeId, projectId, kind });
+    backendMode = "tauri";
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return;
+    }
+    throw error;
+  }
+}
+
+export async function bindNodeToSession(nodeId: string, sessionId: string): Promise<void> {
+  if (backendMode === "local") {
+    return;
+  }
+
+  try {
+    await callTauri<void>("workspace_bind_node_session", { nodeId, sessionId });
+    backendMode = "tauri";
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return;
+    }
+    throw error;
+  }
+}
+
+export async function getSessionByNode(nodeId: string): Promise<string | null> {
+  if (backendMode === "local") {
+    return null;
+  }
+
+  try {
+    const result = await callTauri<string | null>("workspace_get_session_by_node", { nodeId });
+    backendMode = "tauri";
+    return result;
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function getNodeBySession(sessionId: string): Promise<string | null> {
+  if (backendMode === "local") {
+    return null;
+  }
+
+  try {
+    const result = await callTauri<string | null>("workspace_get_node_by_session", { sessionId });
+    backendMode = "tauri";
+    return result;
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return null;
+    }
+    throw error;
+  }
+}
+
+export async function updateNodeState(nodeId: string, state: string): Promise<void> {
+  if (backendMode === "local") {
+    return;
+  }
+
+  try {
+    await callTauri<void>("workspace_update_node_state", { nodeId, state });
+    backendMode = "tauri";
+  } catch (error) {
+    if (backendMode === "unknown") {
+      backendMode = "local";
+      return;
+    }
+    throw error;
+  }
+}
+
+// ============================================================================
+// Connection Runtime API
+// ============================================================================
+
+export async function connectionRegister(projectId: string): Promise<ConnectionContext> {
+  return withBackend("connection_register", { projectId }, () => {
+    throw new Error("Connection runtime not available in local mode");
+  });
+}
+
+export async function connectionGet(projectId: string): Promise<ConnectionContext | null> {
+  return withBackend("connection_get", { projectId }, () => null);
+}
+
+export async function connectionUpdateState(projectId: string, state: ConnectionState): Promise<void> {
+  return withBackend("connection_update_state", { projectId, state }, () => {});
+}
+
+export async function connectionSetError(projectId: string, error: string): Promise<void> {
+  return withBackend("connection_set_error", { projectId, error }, () => {});
+}
+
+export async function connectionBindSession(projectId: string, sessionId: string): Promise<void> {
+  return withBackend("connection_bind_session", { projectId, sessionId }, () => {});
+}
+
+export async function connectionUnbindSession(projectId: string, sessionId: string): Promise<void> {
+  return withBackend("connection_unbind_session", { projectId, sessionId }, () => {});
+}
+
+export async function connectionAddNode(projectId: string, nodeId: string): Promise<void> {
+  return withBackend("connection_add_node", { projectId, nodeId }, () => {});
+}
+
+export async function connectionRemoveNode(projectId: string, nodeId: string): Promise<void> {
+  return withBackend("connection_remove_node", { projectId, nodeId }, () => {});
+}
+
+export async function connectionRecordSuccess(projectId: string, latencyMs?: number): Promise<void> {
+  return withBackend("connection_record_success", { projectId, latencyMs }, () => {});
+}
+
+export async function connectionUpdateHealthCheck(projectId: string): Promise<void> {
+  return withBackend("connection_update_health_check", { projectId }, () => {});
+}
+
+export async function connectionListWithActiveNodes(): Promise<ConnectionContext[]> {
+  return withBackend("connection_list_with_active_nodes", {}, () => []);
+}
+
+export async function connectionListByServer(serverId: string): Promise<ConnectionContext[]> {
+  return withBackend("connection_list_by_server", { serverId }, () => []);
+}
+
+export async function connectionRemove(projectId: string): Promise<ConnectionContext | null> {
+  return withBackend("connection_remove", { projectId }, () => null);
+}
+
+export async function connectionListAll(): Promise<ConnectionContext[]> {
+  return withBackend("connection_list_all", {}, () => []);
+}
+
+export async function connectionListByState(state: ConnectionState): Promise<ConnectionContext[]> {
+  return withBackend("connection_list_by_state", { state }, () => []);
+}
+
+export async function sessionRegister(sessionId: string, projectId: string): Promise<void> {
+  return withBackend("session_register", { sessionId, projectId }, () => {});
+}
+
+export async function sessionGet(sessionId: string): Promise<SessionMetadata | null> {
+  return withBackend("session_get", { sessionId }, () => null);
+}
+
+export async function sessionTouch(sessionId: string): Promise<void> {
+  return withBackend("session_touch", { sessionId }, () => {});
+}
+
+export async function sessionListByProject(projectId: string): Promise<SessionMetadata[]> {
+  return withBackend("session_list_by_project", { projectId }, () => []);
+}
+
+export async function sessionRemove(sessionId: string): Promise<SessionMetadata | null> {
+  return withBackend("session_remove", { sessionId }, () => null);
+}
+
+export async function sessionRemoveByProject(projectId: string): Promise<SessionMetadata[]> {
+  return withBackend("session_remove_by_project", { projectId }, () => []);
+}
+
+export async function sessionCountByProject(projectId: string): Promise<number> {
+  return withBackend("session_count_by_project", { projectId }, () => 0);
+}
+
+// ============================================================================
+// Snapshot APIs
+// ============================================================================
+
+export interface SnapshotReason {
+  type: "disconnect" | "error" | "manual" | "periodic";
+}
+
+export interface TerminalTabSnapshot {
+  nodeId: string;
+  title: string;
+  cwd?: string;
+  lastCommand?: string;
+  index: number;
+}
+
+export interface ReconnectSnapshot {
+  projectId: string;
+  serverId?: string;
+  databaseId?: string;
+  activeNodeIds: string[];
+  terminalTabs: TerminalTabSnapshot[];
+  activeLogSources: string[];
+  lastAiPrompt?: string;
+  lastConnectionState: string;
+  capturedAt: number;
+  reason: string;
+}
+
+export async function snapshotSave(
+  projectId: string,
+  reason: string,
+  options: {
+    serverId?: string;
+    databaseId?: string;
+    activeNodeIds?: string[];
+    terminalTabs?: TerminalTabSnapshot[];
+    activeLogSources?: string[];
+    lastAiPrompt?: string;
+    lastConnectionState?: string;
+  } = {}
+): Promise<void> {
+  return withBackend(
+    "snapshot_create",
+    {
+      projectId,
+      reason,
+      serverId: options.serverId,
+      databaseId: options.databaseId,
+      activeNodeIds: options.activeNodeIds || [],
+      terminalTabs: options.terminalTabs || [],
+      activeLogSources: options.activeLogSources || [],
+      lastAiPrompt: options.lastAiPrompt,
+      lastConnectionState: options.lastConnectionState || "unknown",
+    },
+    () => {}
+  );
+}
+
+export async function snapshotGet(projectId: string): Promise<ReconnectSnapshot | null> {
+  return withBackend("snapshot_get", { projectId }, () => null);
+}
+
+export async function snapshotRemove(projectId: string): Promise<ReconnectSnapshot | null> {
+  return withBackend("snapshot_remove", { projectId }, () => null);
+}
+
+export async function snapshotListAll(): Promise<ReconnectSnapshot[]> {
+  // Use snapshot_get for each known project, or return empty array
+  // Since we don't have a list_all command anymore
+  return [];
+}
+
+export async function snapshotListValid(maxAgeMs: number): Promise<ReconnectSnapshot[]> {
+  // Similar to above - would need to track projects separately
+  return [];
+}
+
+export async function snapshotCleanupExpired(maxAgeMs: number): Promise<number> {
+  return withBackend("snapshot_cleanup_expired", { maxAgeMs }, () => 0);
 }

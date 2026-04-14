@@ -1,11 +1,14 @@
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useEffect, useState } from "react";
 import { useI18n } from "../../lib/i18n";
+import { isMac } from "../../lib/platform";
 import { type Project } from "../../types/models";
 
 const win = typeof window !== "undefined" && (window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__
   ? getCurrentWindow()
   : null;
+
+/* ── Windows-style icons ────────────────────────────── */
 
 function IconMinimize() {
   return (
@@ -39,6 +42,58 @@ function IconClose() {
   );
 }
 
+/* ── macOS traffic-light buttons ────────────────────── */
+
+function MacTrafficLights({
+  onClose,
+  onMinimize,
+  onMaximize,
+}: {
+  onClose: () => void;
+  onMinimize: () => void;
+  onMaximize: () => void;
+}) {
+  return (
+    <div className="group flex items-center gap-2 px-4">
+      {/* Close */}
+      <button
+        type="button"
+        onClick={onClose}
+        className="relative flex h-3 w-3 items-center justify-center rounded-full"
+        style={{ backgroundColor: "#ff5f57" }}
+      >
+        <svg viewBox="0 0 8 8" className="h-[6px] w-[6px] fill-none stroke-[#4d0000] opacity-0 group-hover:opacity-100" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M1 1l6 6M7 1l-6 6" />
+        </svg>
+      </button>
+      {/* Minimize */}
+      <button
+        type="button"
+        onClick={onMinimize}
+        className="relative flex h-3 w-3 items-center justify-center rounded-full"
+        style={{ backgroundColor: "#febc2e" }}
+      >
+        <svg viewBox="0 0 8 8" className="h-[6px] w-[6px] fill-none stroke-[#995700] opacity-0 group-hover:opacity-100" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M1 4h6" />
+        </svg>
+      </button>
+      {/* Maximize */}
+      <button
+        type="button"
+        onClick={onMaximize}
+        className="relative flex h-3 w-3 items-center justify-center rounded-full"
+        style={{ backgroundColor: "#28c840" }}
+      >
+        <svg viewBox="0 0 8 8" className="h-[6px] w-[6px] fill-none stroke-[#006500] opacity-0 group-hover:opacity-100" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M1 1l6 6M7 1l-6 6" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
+/* ── TitleBar ───────────────────────────────────────── */
+
 interface TitleBarProps {
   activeProject: Project | null;
   onOpenSettings: () => void;
@@ -68,8 +123,17 @@ export default function TitleBar({ activeProject, onOpenSettings }: TitleBarProp
 
   return (
     <div className="flex h-[40px] shrink-0 select-none items-center border-b border-white/6 bg-[#161618]" data-tauri-drag-region>
-      {/* Left: app name + active project */}
-      <div className="flex items-center gap-0 px-5" data-tauri-drag-region>
+      {/* macOS: traffic lights on the left */}
+      {isMac && (
+        <MacTrafficLights
+          onClose={handleClose}
+          onMinimize={handleMinimize}
+          onMaximize={handleMaximize}
+        />
+      )}
+
+      {/* App name + active project */}
+      <div className={`flex items-center gap-0 ${isMac ? "pl-1" : "px-5"}`} data-tauri-drag-region>
         <span className="text-[13px] font-semibold tracking-[0.04em] text-white/85">Proj-Eye</span>
 
         {activeProject && (
@@ -100,35 +164,36 @@ export default function TitleBar({ activeProject, onOpenSettings }: TitleBarProp
           </svg>
         </button>
 
-        {/* Separator */}
-        <div className="mx-1 h-5 w-px bg-white/10" />
+        {/* Windows: separator + window controls */}
+        {!isMac && (
+          <>
+            <div className="mx-1 h-5 w-px bg-white/10" />
 
-        {/* Minimize */}
-        <button
-          type="button"
-          onClick={handleMinimize}
-          className="flex h-[40px] w-11 items-center justify-center text-white/40 transition hover:bg-white/6 hover:text-white/75"
-        >
-          <IconMinimize />
-        </button>
+            <button
+              type="button"
+              onClick={handleMinimize}
+              className="flex h-[40px] w-11 items-center justify-center text-white/40 transition hover:bg-white/6 hover:text-white/75"
+            >
+              <IconMinimize />
+            </button>
 
-        {/* Maximize / Restore */}
-        <button
-          type="button"
-          onClick={handleMaximize}
-          className="flex h-[40px] w-11 items-center justify-center text-white/40 transition hover:bg-white/6 hover:text-white/75"
-        >
-          <IconMaximize isMaximized={isMaximized} />
-        </button>
+            <button
+              type="button"
+              onClick={handleMaximize}
+              className="flex h-[40px] w-11 items-center justify-center text-white/40 transition hover:bg-white/6 hover:text-white/75"
+            >
+              <IconMaximize isMaximized={isMaximized} />
+            </button>
 
-        {/* Close */}
-        <button
-          type="button"
-          onClick={handleClose}
-          className="flex h-[40px] w-11 items-center justify-center text-white/40 transition hover:bg-red-500/80 hover:text-white"
-        >
-          <IconClose />
-        </button>
+            <button
+              type="button"
+              onClick={handleClose}
+              className="flex h-[40px] w-11 items-center justify-center text-white/40 transition hover:bg-red-500/80 hover:text-white"
+            >
+              <IconClose />
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

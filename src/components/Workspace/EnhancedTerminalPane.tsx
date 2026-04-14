@@ -9,6 +9,8 @@ import {
   type Project,
   type SessionSummary,
 } from "../../types/models";
+import { useTerminalConnection } from "../../hooks/useTerminalConnection";
+import { ConnectionState } from "../../types/connection";
 
 interface TerminalContextMenuState {
   selectedText: string;
@@ -57,13 +59,15 @@ async function readClipboardText(): Promise<string | null> {
   return null;
 }
 
-interface TerminalPaneProps {
+interface EnhancedTerminalPaneProps {
   project: Project;
   session: SessionSummary | null;
   terminalBuffer: string;
   onInput: (data: string) => void;
   onResize: (cols: number, rows: number) => void;
   onReconnect: () => void;
+  tabId?: string;
+  tabIndex?: number;
 }
 
 function CopyIcon() {
@@ -84,14 +88,26 @@ function PasteIcon() {
   );
 }
 
-export default function TerminalPane({
+/**
+ * EnhancedTerminalPane - Terminal with ConnectionRuntime integration
+ *
+ * This component extends the original TerminalPane with:
+ * - ConnectionRuntime integration via useTerminalConnection hook
+ * - Automatic snapshot creation on disconnect
+ * - Snapshot restoration on reconnect
+ * - Workspace node registration
+ * - Session registry management
+ */
+export default function EnhancedTerminalPane({
   project,
   session,
   terminalBuffer,
   onInput,
   onResize,
   onReconnect,
-}: TerminalPaneProps) {
+  tabId,
+  tabIndex = 0,
+}: EnhancedTerminalPaneProps) {
   const { locale, t } = useI18n();
   const terminalHostRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
@@ -109,6 +125,40 @@ export default function TerminalPane({
   const lastReportedSizeRef = useRef<{ cols: number; rows: number } | null>(null);
   const [contextMenu, setContextMenu] = useState<TerminalContextMenuState | null>(null);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // NEW: Integrate with ConnectionRuntime
+  const {
+    nodeId,
+    connectionState,
+    isHealthy,
+    createSnapshot,
+    restoreFromSnapshot,
+  } = useTerminalConnection({
+    projectId: project.id,
+    session,
+    tab: tabId ? { id: tabId, index: tabIndex, label: `Terminal ${tabIndex + 1}` } : null,
+    terminalBuffer,
+    onReconnectComplete: () => {
+      console.log('Reconnect completed for terminal', { projectId: project.id, nodeId });
+    },
+  });
+
+  // NEW: Create snapshot when connection is about to close
+  useEffect(() => {
+    if (connectionState === ConnectionState.Closed && terminalRef.current) {
+      const terminal = terminalRef.current;
+      const terminalState = {
+        cols: terminal.cols,
+        rows: terminal.rows,
+        scrollbackLines: [], // TODO: Extract scrollback if needed
+        cursorPosition: [0, 0] as [number, number], // TODO: Get actual cursor position
+      };
+
+      createSnapshot(terminalState).catch((error) => {
+        console.error('Failed to create terminal snapshot:', error);
+      });
+    }
+  }, [connectionState, createSnapshot]);
 
   const replayTerminalData = (data: string, sanitizeReplay = false) => {
     const terminal = terminalRef.current;
@@ -427,6 +477,12 @@ export default function TerminalPane({
       {(failed || reconnecting) && (
         <div className="flex items-center justify-end border-b border-white/6 px-4 py-3">
           <div className="flex items-center gap-3">
+            {/* NEW: Show connection health indicator */}
+            {nodeId && (
+              <span className="text-[10px] text-white/42">
+                Node: {nodeId.slice(0, 8)}
+              </span>
+            )}
             {failed ? (
               <button
                 type="button"
@@ -508,6 +564,13 @@ export default function TerminalPane({
             {session?.cwd ?? project.rootPath}
           </div>
         ) : null}
+
+        {/* NEW: Connection health indicator */}
+        {!failed && !reconnecting && !isHealthy && (
+          <div className="pointer-events-none absolute top-4 right-4 rounded-full border border-yellow-500/20 bg-yellow-500/10 px-2 py-1 text-[10px] text-yellow-400">
+            Degraded
+          </div>
+        )}
       </div>
     </div>
   );

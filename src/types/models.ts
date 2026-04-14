@@ -299,6 +299,8 @@ export interface SessionSummary {
   connectionState: WorkspaceConnectionState;
   transcript: string[];
   startedAt: number;
+  // Optional workspace node binding
+  nodeId?: string;
 }
 
 export interface LogChunk {
