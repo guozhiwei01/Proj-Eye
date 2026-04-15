@@ -14,6 +14,7 @@ pub mod connection_pool;
 pub mod session_lifecycle;
 pub mod reconnect;
 pub mod health_check;
+pub mod prewarm;
 
 // Re-export all commands for backward compatibility
 pub use app::*;
@@ -30,3 +31,4 @@ pub use snapshot::*;
 pub use connection_pool::*;
 pub use reconnect::*;
 pub use health_check::*;
+pub use prewarm::*;

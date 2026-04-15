@@ -136,7 +136,17 @@ pub fn run() {
             commands::health_check_get_config,
             commands::health_check_get_stats,
             commands::health_check_cleanup,
-            commands::health_check_perform
+            commands::health_check_perform,
+            commands::prewarm_record_usage,
+            commands::prewarm_get_candidates,
+            commands::prewarm_get_pattern,
+            commands::prewarm_get_all_patterns,
+            commands::prewarm_add_schedule,
+            commands::prewarm_remove_schedule,
+            commands::prewarm_get_schedules,
+            commands::prewarm_set_strategy,
+            commands::prewarm_get_strategy,
+            commands::prewarm_clear_patterns
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
