@@ -123,3 +123,108 @@ All user-visible strings live in `src/lib/i18n.ts`. Use `useI18n()` → `t(key, 
 ## Product spec
 
 The initial product document is `document-version1.md` (written in Chinese).
+
+## Refactoring Progress (PR9-24)
+
+### ✅ Month 1: Connection Pool & Session Management (PR9-12) - COMPLETED
+
+**PR9: Connection Pool**
+- Connection reuse mechanism (max 20 connections)
+- Lifecycle management (acquire, release, health check)
+- Auto cleanup idle connections (5min timeout)
+- 8 Tauri commands: `pool_acquire`, `pool_release`, `pool_get_info`, `pool_cleanup_idle`, `pool_list_all`, `pool_stats`, `pool_prewarm`, `pool_health_check`
+
+**PR10: Session Lifecycle**
+- State machine: Created → Active → Idle → Paused → Hibernated → Destroyed
+- Auto state transitions based on activity
+- Lifecycle policy: idle_timeout=5min, hibernate_timeout=30min, destroy_timeout=24h
+- Keep-alive mechanism (30s interval)
+- 11 Tauri commands: `lifecycle_create_session`, `lifecycle_get_session`, `lifecycle_record_activity`, `lifecycle_pause_session`, `lifecycle_resume_session`, `lifecycle_hibernate_session`, `lifecycle_wake_session`, `lifecycle_destroy_session`, `lifecycle_get_sessions_by_state`, `lifecycle_get_stats`, `lifecycle_check_transitions`, `lifecycle_set_policy`
+
+**PR11: Auto Reconnect**
+- Exponential backoff: 1s → 2s → 4s → 8s → 16s → 30s (max 5 attempts)
+- Jitter: ±25% random to prevent thundering herd
+- State machine: Idle → Attempting → Backoff → Success/Failed
+- Concurrent control: max 10 reconnects
+- 12 Tauri commands: `reconnect_start`, `reconnect_cancel`, `reconnect_get_status`, `reconnect_list_active`, `reconnect_record_attempt`, `reconnect_mark_success`, `reconnect_set_strategy`, `reconnect_get_strategy`, `reconnect_should_attempt`, `reconnect_get_ready`, `reconnect_cleanup`, `reconnect_get_stats`
+
+**PR12: Health Check**
+- Health status: Healthy / Degraded / Unhealthy / Unknown
+- Auto evaluation: 3 consecutive failures → Unhealthy, 2 consecutive successes → Healthy
+- Metrics: latency tracking, success rate, check history (max 100 entries)
+- Config: interval=30s, timeout=5s, failure_threshold=3, success_threshold=2
+- 11 Tauri commands: `health_check_register`, `health_check_unregister`, `health_check_record`, `health_check_get_metrics`, `health_check_get_all`, `health_check_get_by_status`, `health_check_get_ready`, `health_check_set_config`, `health_check_get_config`, `health_check_get_stats`, `health_check_cleanup`, `health_check_perform`
+
+### 🚧 Month 2: UI & User Experience (PR13-16) - IN PROGRESS
+
+**PR13: Connection Pool Monitor UI**
+- Real-time connection pool status panel
+- Connection list with state indicators (active/idle/unhealthy)
+- Pool statistics: total/active/idle/unhealthy counts, reuse rate
+- Manual operations: acquire, release, cleanup, prewarm
+- Components: `ConnectionPoolPanel`, `ConnectionCard`, `PoolStatsChart`
+
+**PR14: Session Lifecycle Visualizer**
+- Session state timeline visualization
+- State transition history with timestamps
+- Lifecycle policy configuration UI
+- Manual state control: pause, resume, hibernate, wake, destroy
+- Components: `SessionLifecyclePanel`, `SessionStateTimeline`, `LifecyclePolicyEditor`
+
+**PR15: Reconnect Status Indicator**
+- Reconnect progress indicator with countdown
+- Attempt history and error messages
+- Reconnect strategy configuration UI
+- Manual reconnect trigger
+- Components: `ReconnectIndicator`, `ReconnectProgress`, `ReconnectStrategyEditor`
+
+**PR16: Health Status Dashboard**
+- Health status overview for all sessions
+- Health metrics charts: latency, success rate, status distribution
+- Health check configuration UI
+- Manual health check trigger
+- Components: `HealthDashboard`, `HealthMetricsChart`, `HealthStatusBadge`, `HealthConfigEditor`
+
+### 📋 Month 3: Advanced Features (PR17-20) - PLANNED
+
+**PR17: Connection Prewarm Strategy**
+- Predictive connection prewarming based on usage patterns
+- Scheduled prewarm for frequently used servers
+- Smart prewarm on project open
+
+**PR18: Load Balancing**
+- Distribute connections across multiple servers
+- Health-based routing
+- Failover support
+
+**PR19: Connection Priority**
+- Priority queue for connection requests
+- VIP sessions get faster connection allocation
+- Resource quota per project
+
+**PR20: Fault Tolerance**
+- Automatic failover to backup servers
+- Circuit breaker pattern
+- Graceful degradation
+
+### 📋 Month 4: Optimization (PR21-24) - PLANNED
+
+**PR21: Performance Optimization**
+- Connection pool warmup on app start
+- Batch operations for multiple sessions
+- Memory usage optimization
+
+**PR22: Monitoring & Alerts**
+- Real-time monitoring dashboard
+- Alert rules configuration
+- Notification system
+
+**PR23: Advanced Metrics**
+- Detailed performance metrics
+- Historical data analysis
+- Trend prediction
+
+**PR24: Testing & Documentation**
+- Integration tests for all modules
+- Performance benchmarks
+- User documentation
