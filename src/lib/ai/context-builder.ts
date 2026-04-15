@@ -119,8 +119,8 @@ function extractTranscriptLines(
   return session.transcript
     .slice(start)
     .slice(-maxLines)
-    .map((line) => line.trimEnd())
-    .filter((line) => line.trim().length > 0);
+    .map((line: string) => line.trimEnd())
+    .filter((line: string) => line.trim().length > 0);
 }
 
 /**
@@ -193,22 +193,22 @@ export function buildProjectContext(
   const appState = useAppStore.getState();
 
   // Get project details
-  const project = appState.config.projects.find((p) => p.id === projectId);
+  const project = appState.config.projects.find((p: any) => p.id === projectId);
   const projectName = project?.name ?? "Unknown Project";
 
   // Get database summary
   const databaseSummary = project
     ? appState.config.databases
-        .filter((db) => project.databaseIds.includes(db.id))
-        .map((db) => `${db.name}:${db.type}`)
+        .filter((db: any) => project.databaseIds.includes(db.id))
+        .map((db: any) => `${db.name}:${db.type}`)
     : [];
 
   // Get active session
   const activeTab = workspace.terminalTabs.find(
-    (tab) => tab.projectId === projectId && tab.active
+    (tab: any) => tab.projectId === projectId && tab.active
   );
   const resolvedSessionId = options.sessionId ?? activeTab?.sessionId;
-  const session = workspace.sessions.find((s) => s.id === resolvedSessionId) ?? null;
+  const session = workspace.sessions.find((s: any) => s.id === resolvedSessionId) ?? null;
 
   // Get terminal context
   const buffer = resolvedSessionId ? workspace.terminalBuffers[resolvedSessionId] ?? "" : "";
@@ -241,9 +241,9 @@ export function buildProjectContext(
     : recentTranscriptLines;
 
   // Get log context
-  const projectLogs = workspace.logs.filter((log) => log.projectId === projectId);
+  const projectLogs = workspace.logs.filter((log: any) => log.projectId === projectId);
   const recentLogs = projectLogs.slice(-(options.maxLogLines ?? LOG_CONTEXT_COUNT));
-  const logSnippet = recentLogs.map((log) => log.line);
+  const logSnippet = recentLogs.map((log: any) => log.line);
 
   // Enhanced context
   const anomalySummary = options.includeAnomalies !== false
