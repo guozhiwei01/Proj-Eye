@@ -11,6 +11,7 @@ pub mod workspace;
 pub mod connection;
 pub mod snapshot;
 pub mod connection_pool;
+pub mod session_lifecycle;
 
 // Re-export all commands for backward compatibility
 pub use app::*;

@@ -100,7 +100,19 @@ pub fn run() {
             commands::pool_list_all,
             commands::pool_stats,
             commands::pool_prewarm,
-            commands::pool_health_check
+            commands::pool_health_check,
+            commands::session_lifecycle::lifecycle_create_session,
+            commands::session_lifecycle::lifecycle_get_session,
+            commands::session_lifecycle::lifecycle_record_activity,
+            commands::session_lifecycle::lifecycle_pause_session,
+            commands::session_lifecycle::lifecycle_resume_session,
+            commands::session_lifecycle::lifecycle_hibernate_session,
+            commands::session_lifecycle::lifecycle_wake_session,
+            commands::session_lifecycle::lifecycle_destroy_session,
+            commands::session_lifecycle::lifecycle_get_sessions_by_state,
+            commands::session_lifecycle::lifecycle_get_stats,
+            commands::session_lifecycle::lifecycle_check_transitions,
+            commands::session_lifecycle::lifecycle_set_policy
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
