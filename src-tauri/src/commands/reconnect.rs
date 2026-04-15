@@ -1,4 +1,4 @@
-use crate::runtime::reconnect::{ReconnectContext, ReconnectStrategy, ReconnectStats};
+use crate::runtime::reconnect::{ReconnectContext, ReconnectStrategy, ReconnectStats, GracePeriodConfig};
 use tauri::State;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -121,4 +121,59 @@ pub async fn reconnect_get_stats(
 ) -> Result<ReconnectStats, String> {
     let manager = manager.lock().await;
     Ok(manager.get_stats().await)
+}
+
+/// Start grace period for a session
+#[tauri::command]
+pub async fn reconnect_start_grace_period(
+    session_id: String,
+    manager: State<'_, ReconnectManagerState>,
+) -> Result<(), String> {
+    let manager = manager.lock().await;
+    manager.start_grace_period(&session_id).await
+}
+
+/// Update grace period progress
+#[tauri::command]
+pub async fn reconnect_update_grace_period(
+    session_id: String,
+    elapsed: u64,
+    manager: State<'_, ReconnectManagerState>,
+) -> Result<(), String> {
+    let manager = manager.lock().await;
+    manager.update_grace_period_progress(&session_id, elapsed).await
+}
+
+/// End grace period
+#[tauri::command]
+pub async fn reconnect_end_grace_period(
+    session_id: String,
+    success: bool,
+    manager: State<'_, ReconnectManagerState>,
+) -> Result<(), String> {
+    let manager = manager.lock().await;
+    manager.end_grace_period(&session_id, success).await
+}
+
+/// Set grace period config in strategy
+#[tauri::command]
+pub async fn reconnect_set_grace_period_config(
+    config: GracePeriodConfig,
+    manager: State<'_, ReconnectManagerState>,
+) -> Result<(), String> {
+    let mut manager = manager.lock().await;
+    let mut strategy = manager.get_default_strategy().await;
+    strategy.grace_period = config;
+    manager.set_default_strategy(strategy).await;
+    Ok(())
+}
+
+/// Get grace period config from strategy
+#[tauri::command]
+pub async fn reconnect_get_grace_period_config(
+    manager: State<'_, ReconnectManagerState>,
+) -> Result<GracePeriodConfig, String> {
+    let manager = manager.lock().await;
+    let strategy = manager.get_default_strategy().await;
+    Ok(strategy.grace_period)
 }

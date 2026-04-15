@@ -9,10 +9,29 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "lowercase")]
 pub enum ReconnectState {
     Idle,
+    GracePeriod,
     Attempting,
     Backoff,
     Success,
     Failed,
+}
+
+/// Grace period configuration for connection recovery
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GracePeriodConfig {
+    pub enabled: bool,
+    pub duration_secs: u64,
+    pub probe_interval_secs: u64,
+}
+
+impl Default for GracePeriodConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            duration_secs: 30,
+            probe_interval_secs: 2,
+        }
+    }
 }
 
 /// Reconnect strategy configuration
@@ -23,6 +42,7 @@ pub struct ReconnectStrategy {
     pub max_delay_ms: u64,
     pub backoff_multiplier: f64,
     pub jitter: bool,
+    pub grace_period: GracePeriodConfig,
 }
 
 impl Default for ReconnectStrategy {
@@ -33,6 +53,7 @@ impl Default for ReconnectStrategy {
             max_delay_ms: 30000,
             backoff_multiplier: 2.0,
             jitter: true,
+            grace_period: GracePeriodConfig::default(),
         }
     }
 }
@@ -48,6 +69,8 @@ pub struct ReconnectContext {
     pub strategy: ReconnectStrategy,
     pub error_history: Vec<String>,
     pub started_at: u64,
+    pub grace_period_elapsed: Option<u64>,
+    pub grace_period_total: Option<u64>,
 }
 
 impl ReconnectContext {
@@ -66,7 +89,29 @@ impl ReconnectContext {
             strategy,
             error_history: Vec::new(),
             started_at: now,
+            grace_period_elapsed: None,
+            grace_period_total: None,
         }
+    }
+
+    pub fn start_grace_period(&mut self) {
+        self.state = ReconnectState::GracePeriod;
+        self.grace_period_elapsed = Some(0);
+        self.grace_period_total = Some(self.strategy.grace_period.duration_secs);
+    }
+
+    pub fn update_grace_period(&mut self, elapsed: u64) {
+        self.grace_period_elapsed = Some(elapsed);
+    }
+
+    pub fn end_grace_period(&mut self, success: bool) {
+        if success {
+            self.state = ReconnectState::Success;
+        } else {
+            self.state = ReconnectState::Attempting;
+        }
+        self.grace_period_elapsed = None;
+        self.grace_period_total = None;
     }
 
     pub fn should_retry(&self) -> bool {
@@ -174,7 +219,7 @@ impl ReconnectManager {
             .filter(|ctx| {
                 matches!(
                     ctx.state,
-                    ReconnectState::Attempting | ReconnectState::Backoff
+                    ReconnectState::GracePeriod | ReconnectState::Attempting | ReconnectState::Backoff
                 )
             })
             .count();
@@ -212,11 +257,52 @@ impl ReconnectManager {
             .filter(|ctx| {
                 matches!(
                     ctx.state,
-                    ReconnectState::Attempting | ReconnectState::Backoff
+                    ReconnectState::GracePeriod | ReconnectState::Attempting | ReconnectState::Backoff
                 )
             })
             .cloned()
             .collect()
+    }
+
+    /// Update grace period progress
+    pub async fn update_grace_period_progress(
+        &self,
+        session_id: &str,
+        elapsed: u64,
+    ) -> Result<(), String> {
+        let mut contexts = self.contexts.write().await;
+        if let Some(context) = contexts.get_mut(session_id) {
+            context.update_grace_period(elapsed);
+            Ok(())
+        } else {
+            Err("Reconnect context not found".to_string())
+        }
+    }
+
+    /// End grace period
+    pub async fn end_grace_period(
+        &self,
+        session_id: &str,
+        success: bool,
+    ) -> Result<(), String> {
+        let mut contexts = self.contexts.write().await;
+        if let Some(context) = contexts.get_mut(session_id) {
+            context.end_grace_period(success);
+            Ok(())
+        } else {
+            Err("Reconnect context not found".to_string())
+        }
+    }
+
+    /// Start grace period for a session
+    pub async fn start_grace_period(&self, session_id: &str) -> Result<(), String> {
+        let mut contexts = self.contexts.write().await;
+        if let Some(context) = contexts.get_mut(session_id) {
+            context.start_grace_period();
+            Ok(())
+        } else {
+            Err("Reconnect context not found".to_string())
+        }
     }
 
     /// Record reconnect attempt
