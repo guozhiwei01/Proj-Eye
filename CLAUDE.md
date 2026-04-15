@@ -215,27 +215,41 @@ The initial product document is `document-version1.md` (written in Chinese).
 - Manual health check trigger
 - Components: `HealthDashboard`, `HealthMetricsChart`, `HealthStatusBadge`, `HealthConfigEditor`
 
-### 📋 Month 3: Advanced Features (PR17-20) - PLANNED
+### ✅ Month 3: Advanced Features (PR17) - COMPLETED
 
 **PR17: Connection Prewarm Strategy**
-- Predictive connection prewarming based on usage patterns
-- Scheduled prewarm for frequently used servers
-- Smart prewarm on project open
+- ✅ Predictive connection prewarming based on usage patterns
+- ✅ Scheduled prewarm for frequently used servers
+- ✅ Smart prewarm on project open
+- ✅ 8 Tauri commands: `prewarm_record_usage`, `prewarm_get_candidates`, `prewarm_get_pattern`, `prewarm_get_all_patterns`, `prewarm_add_schedule`, `prewarm_remove_schedule`, `prewarm_get_schedules`, `prewarm_set_strategy`, `prewarm_get_strategy`, `prewarm_clear_patterns`
 
-**PR18: Load Balancing**
-- Distribute connections across multiple servers
-- Health-based routing
-- Failover support
+### 🚀 Month 3: OxideTerm-Inspired Features (PR18-20) - PLANNED
 
-**PR19: Connection Priority**
-- Priority queue for connection requests
-- VIP sessions get faster connection allocation
-- Resource quota per project
+**PR18: Grace Period Reconnect** ⭐⭐⭐⭐⭐ (借鉴 OxideTerm)
+- Grace period probing (30s window to recover old connection)
+- Lightweight keepalive probes every 2s
+- Seamless recovery for TUI apps (vim/htop/tmux)
+- Fallback to exponential backoff if old connection is dead
+- UI: Grace period countdown banner in terminal
+- Backend: Enhance existing `reconnect.rs` module
+- Frontend: Add grace period phase to `useReconnect` hook
 
-**PR20: Fault Tolerance**
-- Automatic failover to backup servers
-- Circuit breaker pattern
-- Graceful degradation
+**PR19: Dual-Plane Communication** ⭐⭐⭐⭐☆ (借鉴 OxideTerm)
+- Data plane: WebSocket for terminal I/O (binary frames, high throughput)
+- Control plane: Tauri IPC for commands (JSON, low latency)
+- Backend: Tokio WebSocket server on localhost:9527
+- Frontend: WebSocket client for xterm.js data binding
+- Protocol: Frame format `[session_id_len(1)][session_id][payload]`
+- Performance: Reduce Tauri IPC pressure, improve terminal responsiveness
+
+**PR20: SFTP File Manager** ⭐⭐⭐☆☆ (借鉴 OxideTerm)
+- Dual-pane file browser (local + remote)
+- File operations: upload, download, delete, rename, mkdir
+- Drag-and-drop support
+- File preview (text, images)
+- Progress tracking for large transfers
+- Reuse connection pool for SFTP sessions
+- Components: `SFTPPanel`, `FilePane`, `FileList`, `TransferProgress`
 
 ### 📋 Month 4: Optimization (PR21-24) - PLANNED
 
