@@ -13,6 +13,7 @@ pub mod snapshot;
 pub mod connection_pool;
 pub mod session_lifecycle;
 pub mod reconnect;
+pub mod health_check;
 
 // Re-export all commands for backward compatibility
 pub use app::*;
@@ -28,3 +29,4 @@ pub use connection::*;
 pub use snapshot::*;
 pub use connection_pool::*;
 pub use reconnect::*;
+pub use health_check::*;

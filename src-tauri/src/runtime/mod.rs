@@ -4,6 +4,7 @@ pub mod session_registry;
 pub mod connection_pool;
 pub mod session_lifecycle;
 pub mod reconnect;
+pub mod health_check;
 
 pub use connection_runtime::{
     add_node, all_connections, bind_session as bind_connection_session,
@@ -25,3 +26,5 @@ pub use session_registry::{
 };
 
 pub use connection_pool::{ConnectionPool, PooledConnection, ConnectionState as PoolConnectionState};
+
+pub use health_check::{HealthCheckManager, HealthCheckConfig, HealthMetrics, HealthStatus};

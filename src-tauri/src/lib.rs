@@ -124,7 +124,19 @@ pub fn run() {
             commands::reconnect_should_attempt,
             commands::reconnect_get_ready,
             commands::reconnect_cleanup,
-            commands::reconnect_get_stats
+            commands::reconnect_get_stats,
+            commands::health_check_register,
+            commands::health_check_unregister,
+            commands::health_check_record,
+            commands::health_check_get_metrics,
+            commands::health_check_get_all,
+            commands::health_check_get_by_status,
+            commands::health_check_get_ready,
+            commands::health_check_set_config,
+            commands::health_check_get_config,
+            commands::health_check_get_stats,
+            commands::health_check_cleanup,
+            commands::health_check_perform
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
