@@ -10,8 +10,6 @@ export function ReconnectPanel() {
   const [showStrategyEditor, setShowStrategyEditor] = useState(false);
   const [selectedReconnect, setSelectedReconnect] = useState<string | null>(null);
 
-  const selectedContext = reconnects.find((r) => r.session_id === selectedReconnect);
-
   return (
     <div
       className="flex flex-col h-full"

@@ -156,8 +156,3 @@ function ActionButton({ label, onClick, disabled, danger }: ActionButtonProps) {
     </button>
   );
 }
-
-function useState<T>(initialValue: T): [T, (value: T) => void] {
-  const [state, setState] = React.useState(initialValue);
-  return [state, setState];
-}

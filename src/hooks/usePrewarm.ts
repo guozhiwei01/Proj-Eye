@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback } from 'react';
 import {
   prewarmRecordUsage,
   prewarmGetCandidates,
-  prewarmGetPattern,
   prewarmGetAllPatterns,
   prewarmAddSchedule,
   prewarmRemoveSchedule,

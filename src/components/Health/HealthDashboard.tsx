@@ -7,7 +7,6 @@ import { healthCheckPerform } from '../../lib/backend-health';
 
 export function HealthDashboard() {
   const { metrics, refresh } = useAllHealthMetrics(5000);
-  const { stats } = useHealthCheckStats(5000);
   const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const [checking, setChecking] = useState(false);

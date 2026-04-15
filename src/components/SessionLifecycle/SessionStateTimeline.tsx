@@ -8,11 +8,6 @@ export function SessionStateTimeline({ session }: SessionStateTimelineProps) {
   const states = ['created', 'active', 'idle', 'paused', 'hibernated', 'destroyed'];
   const currentIndex = states.indexOf(session.state);
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString();
-  };
-
   const getStateColor = (state: string, isCurrent: boolean, isPast: boolean) => {
     if (!isPast && !isCurrent) return 'var(--text2)';
 

@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import { poolCleanupIdle, poolStats } from '../../lib/backend-pool';
 
-interface PoolActionsProps {
-  selectedSession: string | null;
-}
-
-export function PoolActions({ selectedSession }: PoolActionsProps) {
+export function PoolActions() {
   const [loading, setLoading] = useState(false);
 
   const handleCleanup = async () => {

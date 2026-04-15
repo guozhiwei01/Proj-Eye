@@ -5,7 +5,6 @@ import {
   healthCheckGetMetrics,
   healthCheckGetAll,
   healthCheckGetByStatus,
-  healthCheckGetReady,
   healthCheckSetConfig,
   healthCheckGetConfig,
   healthCheckGetStats,
