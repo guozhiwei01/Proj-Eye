@@ -18,11 +18,6 @@ export function ReconnectStrategyEditor({ onSave }: ReconnectStrategyEditorProps
     max_delay_ms: 30000,
     backoff_multiplier: 2.0,
     jitter: true,
-    grace_period: {
-      enabled: true,
-      duration_secs: 30,
-      probe_interval_secs: 2,
-    },
   });
 
   const [gracePeriod, setGracePeriod] = useState<GracePeriodConfig>({
