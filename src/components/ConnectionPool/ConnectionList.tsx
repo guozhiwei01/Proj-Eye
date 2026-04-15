@@ -1,4 +1,3 @@
-import React from 'react';
 import { useAllHealthMetrics } from '../../hooks/useHealthCheck';
 import { HealthMetrics } from '../../lib/backend-health';
 

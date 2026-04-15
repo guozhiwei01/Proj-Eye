@@ -1,4 +1,3 @@
-import React from 'react';
 import { HealthStatus } from '../../lib/backend-health';
 
 interface HealthStatusBadgeProps {

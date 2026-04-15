@@ -1,4 +1,3 @@
-import React from 'react';
 import { HealthMetrics } from '../../lib/backend-health';
 
 interface HealthMetricsChartProps {

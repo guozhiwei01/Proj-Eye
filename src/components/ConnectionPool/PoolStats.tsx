@@ -1,4 +1,3 @@
-import React from 'react';
 import { useConnectionPoolStats } from '../../hooks/useConnectionPool';
 import { useHealthCheckStats } from '../../hooks/useHealthCheck';
 

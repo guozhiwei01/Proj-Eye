@@ -1,4 +1,3 @@
-import React from 'react';
 import { SessionLifecycle } from '../../lib/backend-lifecycle';
 import {
   lifecyclePauseSession,

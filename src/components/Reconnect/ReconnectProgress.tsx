@@ -1,4 +1,3 @@
-import React from 'react';
 import { ReconnectContext } from '../../lib/backend-reconnect';
 
 interface ReconnectProgressProps {
