@@ -6,7 +6,7 @@ interface PoolStatsProps {
 }
 
 export function PoolStats({ refreshInterval = 5000 }: PoolStatsProps) {
-  const { stats: poolStats, loading: poolLoading } = useConnectionPoolStats();
+  const { stats: poolStats, isLoading: poolLoading } = useConnectionPoolStats();
   const { stats: healthStats, loading: healthLoading } = useHealthCheckStats(refreshInterval);
 
   if (poolLoading || healthLoading) {
