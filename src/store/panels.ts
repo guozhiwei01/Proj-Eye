@@ -22,4 +22,4 @@ export const usePanelsStore = create<PanelsState>((set) => ({
   setAiOverlay: (isAiOpen) => set({ isAiOpen }),
 }));
 
-export const panelOrder = [BottomPanelKey.Logs, BottomPanelKey.Database, BottomPanelKey.Cron] as const;
+export const panelOrder = [BottomPanelKey.Logs, BottomPanelKey.Database, BottomPanelKey.Cron, BottomPanelKey.SFTP] as const;

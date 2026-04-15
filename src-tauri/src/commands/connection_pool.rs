@@ -4,7 +4,8 @@
  * Tauri 命令接口，用于管理连接池
  */
 
-use crate::runtime::connection_pool::{ConnectionPool, PoolConnectionState};
+use crate::runtime::connection_pool::ConnectionPool;
+use crate::runtime::ConnectionState as PoolConnectionState;
 use once_cell::sync::OnceCell;
 use std::sync::{Arc, Mutex};
 
@@ -17,19 +18,22 @@ fn get_pool() -> Arc<Mutex<ConnectionPool>> {
 
 #[tauri::command]
 pub fn pool_acquire(project_id: String, server_id: String) -> Result<String, String> {
-    let mut pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let mut pool = binding.lock().map_err(|e| e.to_string())?;
     pool.acquire(&project_id, &server_id)
 }
 
 #[tauri::command]
 pub fn pool_release(project_id: String) -> Result<(), String> {
-    let mut pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let mut pool = binding.lock().map_err(|e| e.to_string())?;
     pool.release(&project_id)
 }
 
 #[tauri::command]
 pub fn pool_get_info(project_id: String) -> Result<serde_json::Value, String> {
-    let pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let pool = binding.lock().map_err(|e| e.to_string())?;
 
     if let Some(conn) = pool.get(&project_id) {
         Ok(serde_json::json!({
@@ -48,13 +52,15 @@ pub fn pool_get_info(project_id: String) -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 pub fn pool_cleanup_idle(max_idle_ms: u64) -> Result<usize, String> {
-    let mut pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let mut pool = binding.lock().map_err(|e| e.to_string())?;
     Ok(pool.cleanup_idle(max_idle_ms))
 }
 
 #[tauri::command]
 pub fn pool_list_all() -> Result<Vec<serde_json::Value>, String> {
-    let pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let pool = binding.lock().map_err(|e| e.to_string())?;
 
     let connections: Vec<serde_json::Value> = pool
         .list_all()
@@ -77,7 +83,8 @@ pub fn pool_list_all() -> Result<Vec<serde_json::Value>, String> {
 
 #[tauri::command]
 pub fn pool_stats() -> Result<serde_json::Value, String> {
-    let pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let pool = binding.lock().map_err(|e| e.to_string())?;
 
     Ok(serde_json::json!({
         "total": pool.len(),
@@ -88,12 +95,14 @@ pub fn pool_stats() -> Result<serde_json::Value, String> {
 
 #[tauri::command]
 pub fn pool_prewarm(project_id: String, server_id: String) -> Result<(), String> {
-    let mut pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let mut pool = binding.lock().map_err(|e| e.to_string())?;
     pool.prewarm(&project_id, &server_id)
 }
 
 #[tauri::command]
 pub fn pool_health_check(project_id: String) -> Result<bool, String> {
-    let pool = get_pool().lock().map_err(|e| e.to_string())?;
+    let binding = get_pool();
+    let pool = binding.lock().map_err(|e| e.to_string())?;
     pool.health_check(&project_id)
 }

@@ -1,17 +1,19 @@
 import { useI18n } from "../../lib/i18n";
 import { usePanelsStore, panelOrder } from "../../store/panels";
-import { BottomPanelKey, type AlertItem, type DatabaseResource, type Project } from "../../types/models";
+import { BottomPanelKey, type AlertItem, type DatabaseResource, type Project, type Server } from "../../types/models";
 import CronPanel from "./CronPanel";
 import DatabasePanel from "./DatabasePanel";
 import LogPanel from "./LogPanel";
+import SFTPPanel from "../SFTP/SFTPPanel";
 
 interface BottomPanelProps {
   project: Project;
+  server: Server;
   databases: DatabaseResource[];
   alert: AlertItem | null;
 }
 
-export default function BottomPanel({ project, databases, alert }: BottomPanelProps) {
+export default function BottomPanel({ project, server, databases, alert }: BottomPanelProps) {
   const { t } = useI18n();
   const activeBottomPanel = usePanelsStore((state) => state.activeBottomPanel);
   const toggleBottomPanel = usePanelsStore((state) => state.toggleBottomPanel);
@@ -24,6 +26,7 @@ export default function BottomPanel({ project, databases, alert }: BottomPanelPr
     [BottomPanelKey.Logs]: t("bottom.logs"),
     [BottomPanelKey.Database]: t("bottom.database"),
     [BottomPanelKey.Cron]: t("bottom.cron"),
+    [BottomPanelKey.SFTP]: t("bottom.sftp"),
   };
 
   return (
@@ -49,6 +52,7 @@ export default function BottomPanel({ project, databases, alert }: BottomPanelPr
         {activeBottomPanel === BottomPanelKey.Logs && <LogPanel project={project} alert={alert} />}
         {activeBottomPanel === BottomPanelKey.Database && <DatabasePanel databases={databases} />}
         {activeBottomPanel === BottomPanelKey.Cron && <CronPanel project={project} />}
+        {activeBottomPanel === BottomPanelKey.SFTP && <SFTPPanel server={server} />}
       </div>
     </section>
   );

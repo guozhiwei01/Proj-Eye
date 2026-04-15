@@ -409,6 +409,7 @@ impl ReconnectManager {
         for context in contexts.values() {
             match context.state {
                 ReconnectState::Idle => stats.idle += 1,
+                ReconnectState::GracePeriod => stats.idle += 1,
                 ReconnectState::Attempting => stats.attempting += 1,
                 ReconnectState::Backoff => stats.backoff += 1,
                 ReconnectState::Success => stats.success += 1,

@@ -5,6 +5,7 @@ interface ShortcutBarProps {
   onToggleAi: () => void;
   onToggleLogs: () => void;
   onToggleDatabase: () => void;
+  onToggleSFTP: () => void;
   onCreateTab: () => void;
 }
 
@@ -12,6 +13,7 @@ export default function ShortcutBar({
   onToggleAi,
   onToggleLogs,
   onToggleDatabase,
+  onToggleSFTP,
   onCreateTab,
 }: ShortcutBarProps) {
   const { t } = useI18n();
@@ -21,6 +23,7 @@ export default function ShortcutBar({
     { label: t("shortcut.ai"), hotkey: `${modifierLabel}+K` },
     { label: t("shortcut.logs"), hotkey: `${modifierLabel}+L` },
     { label: t("shortcut.database"), hotkey: `${modifierLabel}+D` },
+    { label: t("shortcut.sftp"), hotkey: `${modifierLabel}+F` },
     { label: t("shortcut.search"), hotkey: `${modifierLabel}+P` },
     { label: t("shortcut.newTab"), hotkey: `${modifierLabel}+T` },
   ] as const;
@@ -62,6 +65,14 @@ export default function ShortcutBar({
           className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition-colors hover:border-[var(--blue)] hover:text-[var(--blue)]"
         >
           {t("shortcut.openDatabase")}
+        </button>
+        <button
+          type="button"
+          aria-label={t("shortcut.openSFTP")}
+          onClick={onToggleSFTP}
+          className="rounded-full border border-[var(--border)] px-4 py-2 text-xs uppercase tracking-[0.18em] text-[var(--text1)] transition-colors hover:border-[var(--green)] hover:text-[var(--green)]"
+        >
+          {t("shortcut.openSFTP")}
         </button>
         <button
           type="button"

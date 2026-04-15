@@ -15,6 +15,8 @@ pub mod session_lifecycle;
 pub mod reconnect;
 pub mod health_check;
 pub mod prewarm;
+pub mod sftp;
+pub mod terminal;
 
 // Re-export all commands for backward compatibility
 pub use app::*;
@@ -32,3 +34,5 @@ pub use connection_pool::*;
 pub use reconnect::*;
 pub use health_check::*;
 pub use prewarm::*;
+pub use sftp::*;
+pub use terminal::*;

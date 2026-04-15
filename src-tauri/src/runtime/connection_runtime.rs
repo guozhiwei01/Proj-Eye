@@ -164,7 +164,7 @@ impl ConnectionContext {
     }
 
     pub fn update_state(&mut self, state: ConnectionState) {
-        self.state = state;
+        self.state = state.clone();
         self.updated_at = current_timestamp_ms();
 
         if state == ConnectionState::Active {

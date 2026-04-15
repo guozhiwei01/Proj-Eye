@@ -58,7 +58,7 @@ pub struct HealthMetrics {
 }
 
 /// Health check result
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthCheckResult {
     pub success: bool,
     pub latency_ms: u64,

@@ -3,6 +3,7 @@ mod runtime;
 mod store;
 
 use tauri::Manager;
+use std::sync::Arc;
 
 #[cfg(windows)]
 fn disable_webview_default_context_menu<R: tauri::Runtime>(app: &tauri::App<R>) {
@@ -23,6 +24,24 @@ pub fn run() {
         .setup(|app| {
             #[cfg(windows)]
             disable_webview_default_context_menu(app);
+
+            // Initialize WebSocket server and Terminal Manager
+            let ws_server = Arc::new(runtime::WsServer::new(9527));
+            let terminal_manager = Arc::new(runtime::TerminalManager::new(Arc::clone(&ws_server)));
+
+            // Start WebSocket server in background
+            let ws_server_clone = Arc::clone(&ws_server);
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = ws_server_clone.start().await {
+                    eprintln!("WebSocket server error: {}", e);
+                }
+            });
+
+            // Store terminal state
+            let terminal_state = Arc::new(tokio::sync::RwLock::new(commands::terminal::TerminalState {
+                manager: terminal_manager,
+            }));
+            app.manage(terminal_state);
 
             Ok(())
         })
@@ -151,7 +170,26 @@ pub fn run() {
             commands::prewarm_get_schedules,
             commands::prewarm_set_strategy,
             commands::prewarm_get_strategy,
-            commands::prewarm_clear_patterns
+            commands::prewarm_clear_patterns,
+            commands::sftp_create_session,
+            commands::sftp_close_session,
+            commands::sftp_get_session,
+            commands::sftp_list_dir,
+            commands::sftp_create_dir,
+            commands::sftp_delete,
+            commands::sftp_rename,
+            commands::sftp_upload,
+            commands::sftp_download,
+            commands::sftp_get_transfer_progress,
+            commands::sftp_cancel_transfer,
+            commands::sftp_read_file,
+            commands::sftp_stat,
+            commands::create_terminal_session,
+            commands::resize_terminal_session,
+            commands::close_terminal_session,
+            commands::get_terminal_session,
+            commands::list_terminal_sessions,
+            commands::get_ws_port
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

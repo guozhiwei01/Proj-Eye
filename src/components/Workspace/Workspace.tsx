@@ -14,6 +14,7 @@ import ShortcutBar from "./ShortcutBar";
 import TerminalPane from "./TerminalPane";
 import TerminalTabs from "./TerminalTabs";
 import WorkspaceHeader from "./WorkspaceHeader";
+import BottomPanel from "../BottomPanel/BottomPanel";
 
 interface WorkspaceProps {
   project: Project;
@@ -42,6 +43,7 @@ export default function Workspace({
   const resizeTerminal = useWorkspaceStore((state) => state.resizeTerminal);
   const reconnectSession = useWorkspaceStore((state) => state.reconnectSession);
   const toggleBottomPanel = usePanelsStore((state) => state.toggleBottomPanel);
+  const activeBottomPanel = usePanelsStore((state) => state.activeBottomPanel);
   const toggleAiOverlay = usePanelsStore((state) => state.toggleAiOverlay);
   const setAiOverlay = usePanelsStore((state) => state.setAiOverlay);
 
@@ -99,8 +101,17 @@ export default function Workspace({
         onToggleAi={toggleAiOverlay}
         onToggleLogs={() => toggleBottomPanel(BottomPanelKey.Logs)}
         onToggleDatabase={() => toggleBottomPanel(BottomPanelKey.Database)}
+        onToggleSFTP={() => toggleBottomPanel(BottomPanelKey.SFTP)}
         onCreateTab={createNewTab}
       />
+      {activeBottomPanel && (
+        <BottomPanel
+          project={project}
+          server={server}
+          databases={databases}
+          alert={alert}
+        />
+      )}
     </section>
   );
 }

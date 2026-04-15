@@ -236,31 +236,31 @@ The initial product document is `document-version1.md` (written in Chinese).
 - ✅ 5 new Tauri commands: start/update/end grace period, get/set config
 - ✅ Configuration UI in ReconnectStrategyEditor
 
-**PR19: Dual-Plane Communication** ⭐⭐⭐⭐☆ (借鉴 OxideTerm) - PLANNED
-- Grace period probing (30s window to recover old connection)
-- Lightweight keepalive probes every 2s
-- Seamless recovery for TUI apps (vim/htop/tmux)
-- Fallback to exponential backoff if old connection is dead
-- UI: Grace period countdown banner in terminal
-- Backend: Enhance existing `reconnect.rs` module
-- Frontend: Add grace period phase to `useReconnect` hook
+**PR20: SFTP File Manager** ⭐⭐⭐☆☆ (借鉴 OxideTerm) - ✅ COMPLETED
+- ✅ Backend: SFTP session management with ssh2 crate
+- ✅ Backend: 13 Tauri commands for file operations
+- ✅ Frontend: TypeScript API layer (backend-sftp.ts)
+- ✅ Frontend: Hooks (useSFTP.ts, useFileTransfer.ts)
+- ✅ Frontend: UI Components (SFTPPanel, FilePane, FileList, TransferProgress)
+- ✅ Integration: Added SFTP to BottomPanel with server prop
+- ✅ Integration: Added SFTP button and shortcuts to Workspace
+- Components: `SFTPPanel`, `FilePane`, `FileList`, `TransferProgress`
 
-**PR19: Dual-Plane Communication** ⭐⭐⭐⭐☆ (借鉴 OxideTerm)
+**PR19: Dual-Plane Communication** ⭐⭐⭐⭐☆ (借鉴 OxideTerm) - 🚧 IN PROGRESS
+- ✅ Backend: WebSocket server on localhost:9527 (ws_server.rs)
+- ✅ Backend: Terminal Manager with SSH/PTY integration (terminal.rs)
+- ✅ Backend: 6 Tauri commands for terminal control plane
+- ✅ Backend: Integrated into lib.rs with tokio runtime
+- ✅ Frontend: WebSocket client with binary frame protocol (ws-terminal.ts)
+- ✅ Frontend: Terminal API wrapper (backend-terminal.ts)
+- ✅ Frontend: React hook with xterm.js integration (useTerminal.ts)
+- ✅ Frontend: Terminal component (TerminalView.tsx)
+- ⏳ Integration: Replace existing TerminalPane with new WebSocket-based version
+- ⏳ Testing: Functional, performance, and edge case testing
 - Data plane: WebSocket for terminal I/O (binary frames, high throughput)
 - Control plane: Tauri IPC for commands (JSON, low latency)
-- Backend: Tokio WebSocket server on localhost:9527
-- Frontend: WebSocket client for xterm.js data binding
 - Protocol: Frame format `[session_id_len(1)][session_id][payload]`
 - Performance: Reduce Tauri IPC pressure, improve terminal responsiveness
-
-**PR20: SFTP File Manager** ⭐⭐⭐☆☆ (借鉴 OxideTerm)
-- Dual-pane file browser (local + remote)
-- File operations: upload, download, delete, rename, mkdir
-- Drag-and-drop support
-- File preview (text, images)
-- Progress tracking for large transfers
-- Reuse connection pool for SFTP sessions
-- Components: `SFTPPanel`, `FilePane`, `FileList`, `TransferProgress`
 
 ### 📋 Month 4: Optimization (PR21-24) - PLANNED
 

@@ -6,6 +6,9 @@ pub mod session_lifecycle;
 pub mod reconnect;
 pub mod health_check;
 pub mod prewarm;
+pub mod sftp;
+pub mod ws_server;
+pub mod terminal;
 
 pub use connection_runtime::{
     add_node, all_connections, bind_session as bind_connection_session,
@@ -31,3 +34,7 @@ pub use connection_pool::{ConnectionPool, PooledConnection, ConnectionState as P
 pub use health_check::{HealthCheckManager, HealthCheckConfig, HealthMetrics, HealthStatus};
 
 pub use prewarm::{PrewarmManager, PrewarmStrategy, UsagePattern, PrewarmSchedule};
+
+pub use ws_server::{WsServer, SessionChannels, ToClientTx, ToTerminalRx};
+
+pub use terminal::{TerminalManager, TerminalSession};

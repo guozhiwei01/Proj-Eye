@@ -116,6 +116,7 @@ export const BottomPanelKey = {
   Logs: "logs",
   Database: "database",
   Cron: "cron",
+  SFTP: "sftp",
 } as const;
 
 export type BottomPanelKey = (typeof BottomPanelKey)[keyof typeof BottomPanelKey];
