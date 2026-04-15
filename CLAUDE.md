@@ -155,6 +155,36 @@ The initial product document is `document-version1.md` (written in Chinese).
 - Config: interval=30s, timeout=5s, failure_threshold=3, success_threshold=2
 - 11 Tauri commands: `health_check_register`, `health_check_unregister`, `health_check_record`, `health_check_get_metrics`, `health_check_get_all`, `health_check_get_by_status`, `health_check_get_ready`, `health_check_set_config`, `health_check_get_config`, `health_check_get_stats`, `health_check_cleanup`, `health_check_perform`
 
+### ✅ Month 2: UI & User Experience (PR13-16) - COMPLETED
+
+**PR13: Connection Pool Monitor UI**
+- ConnectionPoolPanel: Main panel with stats and connection list
+- PoolStats: Real-time pool and health statistics
+- ConnectionList: List of all connections with health status
+- PoolActions: Manual operations (cleanup, refresh)
+- Components: `src/components/ConnectionPool/`
+
+**PR14: Session Lifecycle Visualizer**
+- SessionLifecyclePanel: Main panel with stats and timeline
+- SessionStateTimeline: Visual timeline of state transitions
+- LifecyclePolicyEditor: Configure lifecycle timeouts
+- SessionStateCard: Session details with manual state controls
+- Components: `src/components/SessionLifecycle/`
+
+**PR15: Reconnect Status Indicator**
+- ReconnectPanel: Main panel with all active reconnects
+- ReconnectIndicator: Compact and full status display
+- ReconnectProgress: Visual progress bar with attempt history
+- ReconnectStrategyEditor: Configure backoff strategy
+- Components: `src/components/Reconnect/`
+
+**PR16: Health Status Dashboard**
+- HealthDashboard: Main dashboard with metrics and session list
+- HealthMetricsChart: Aggregate stats and status distribution
+- HealthStatusBadge: Color-coded status indicator
+- HealthConfigEditor: Configure health check parameters
+- Components: `src/components/Health/`
+
 ### 🚧 Month 2: UI & User Experience (PR13-16) - IN PROGRESS
 
 **PR13: Connection Pool Monitor UI**
