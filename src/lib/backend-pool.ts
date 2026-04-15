@@ -2,7 +2,7 @@
  * Connection Pool Backend API
  */
 
-import { withBackend } from "./backend";
+import { invoke } from "@tauri-apps/api/core";
 
 // Connection Pool APIs
 export async function poolAcquire(projectId: string, serverId: string): Promise<string> {
