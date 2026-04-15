@@ -112,7 +112,19 @@ pub fn run() {
             commands::session_lifecycle::lifecycle_get_sessions_by_state,
             commands::session_lifecycle::lifecycle_get_stats,
             commands::session_lifecycle::lifecycle_check_transitions,
-            commands::session_lifecycle::lifecycle_set_policy
+            commands::session_lifecycle::lifecycle_set_policy,
+            commands::reconnect_start,
+            commands::reconnect_cancel,
+            commands::reconnect_get_status,
+            commands::reconnect_list_active,
+            commands::reconnect_record_attempt,
+            commands::reconnect_mark_success,
+            commands::reconnect_set_strategy,
+            commands::reconnect_get_strategy,
+            commands::reconnect_should_attempt,
+            commands::reconnect_get_ready,
+            commands::reconnect_cleanup,
+            commands::reconnect_get_stats
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

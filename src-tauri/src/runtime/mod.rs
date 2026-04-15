@@ -3,6 +3,7 @@ pub mod reconnect_snapshot;
 pub mod session_registry;
 pub mod connection_pool;
 pub mod session_lifecycle;
+pub mod reconnect;
 
 pub use connection_runtime::{
     add_node, all_connections, bind_session as bind_connection_session,
