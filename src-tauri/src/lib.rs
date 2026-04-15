@@ -92,7 +92,15 @@ pub fn run() {
             commands::snapshot_restore,
             commands::snapshot_remove,
             commands::snapshot_list_by_project,
-            commands::snapshot_cleanup_expired
+            commands::snapshot_cleanup_expired,
+            commands::pool_acquire,
+            commands::pool_release,
+            commands::pool_get_info,
+            commands::pool_cleanup_idle,
+            commands::pool_list_all,
+            commands::pool_stats,
+            commands::pool_prewarm,
+            commands::pool_health_check
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

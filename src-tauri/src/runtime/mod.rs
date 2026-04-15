@@ -1,6 +1,7 @@
 pub mod connection_runtime;
 pub mod reconnect_snapshot;
 pub mod session_registry;
+pub mod connection_pool;
 
 pub use connection_runtime::{
     add_node, all_connections, bind_session as bind_connection_session,
@@ -20,3 +21,5 @@ pub use session_registry::{
     all_sessions, count_project_sessions, get_project_sessions, get_session, register_session,
     remove_project_sessions, remove_session, touch_session, SessionMetadata,
 };
+
+pub use connection_pool::{ConnectionPool, PooledConnection, ConnectionState as PoolConnectionState};

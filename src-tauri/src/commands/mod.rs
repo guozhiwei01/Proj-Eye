@@ -10,6 +10,7 @@ pub mod diagnostics;
 pub mod workspace;
 pub mod connection;
 pub mod snapshot;
+pub mod connection_pool;
 
 // Re-export all commands for backward compatibility
 pub use app::*;
@@ -23,3 +24,4 @@ pub use diagnostics::*;
 pub use workspace::*;
 pub use connection::*;
 pub use snapshot::*;
+pub use connection_pool::*;
