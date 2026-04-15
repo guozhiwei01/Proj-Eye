@@ -1,11 +1,8 @@
-import React, { useState } from 'react';
 import { PoolStats } from './PoolStats';
 import { ConnectionList } from './ConnectionList';
 import { PoolActions } from './PoolActions';
 
 export function ConnectionPoolPanel() {
-  const [selectedSession, setSelectedSession] = useState<string | null>(null);
-
   return (
     <div
       className="flex flex-col h-full"
@@ -26,7 +23,7 @@ export function ConnectionPoolPanel() {
         <h2 className="text-base font-semibold" style={{ color: 'var(--text0)' }}>
           Connection Pool Monitor
         </h2>
-        <PoolActions selectedSession={selectedSession} />
+        <PoolActions />
       </div>
 
       {/* Stats */}
@@ -34,7 +31,7 @@ export function ConnectionPoolPanel() {
 
       {/* Connection List */}
       <div className="flex-1 overflow-y-auto">
-        <ConnectionList onSelectConnection={setSelectedSession} />
+        <ConnectionList />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useAllHealthMetrics, useHealthCheckStats } from '../../hooks/useHealthCheck';
+import { useState } from 'react';
+import { useAllHealthMetrics } from '../../hooks/useHealthCheck';
 import { HealthMetricsChart } from './HealthMetricsChart';
 import { HealthStatusBadge } from './HealthStatusBadge';
 import { HealthConfigEditor } from './HealthConfigEditor';

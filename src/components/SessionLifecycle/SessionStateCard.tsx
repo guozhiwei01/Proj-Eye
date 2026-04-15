@@ -1,5 +1,6 @@
-import { SessionLifecycle } from '../../lib/backend-lifecycle';
+import { useState } from 'react';
 import {
+  SessionLifecycle,
   lifecyclePauseSession,
   lifecycleResumeSession,
   lifecycleHibernateSession,

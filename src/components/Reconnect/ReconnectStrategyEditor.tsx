@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { reconnectSetStrategy, ReconnectStrategy } from '../../lib/backend-reconnect';
 
 interface ReconnectStrategyEditorProps {

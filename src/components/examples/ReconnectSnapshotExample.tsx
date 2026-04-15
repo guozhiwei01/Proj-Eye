@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSnapshotStore } from "../../store/snapshot";
 import type { TerminalTabSnapshot } from "../../lib/backend";
 

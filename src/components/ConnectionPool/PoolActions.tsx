@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { poolCleanupIdle, poolStats } from '../../lib/backend-pool';
 
 export function PoolActions() {

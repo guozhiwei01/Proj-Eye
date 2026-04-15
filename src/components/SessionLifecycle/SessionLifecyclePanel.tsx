@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useLifecycleStats } from '../../hooks/useSessionLifecycle';
 import { SessionStateTimeline } from './SessionStateTimeline';
 import { LifecyclePolicyEditor } from './LifecyclePolicyEditor';

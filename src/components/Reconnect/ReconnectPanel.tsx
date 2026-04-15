@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useActiveReconnects, useReconnectStats } from '../../hooks/useReconnect';
 import { ReconnectIndicator } from './ReconnectIndicator';
 import { ReconnectProgress } from './ReconnectProgress';
