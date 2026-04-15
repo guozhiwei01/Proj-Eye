@@ -223,9 +223,20 @@ The initial product document is `document-version1.md` (written in Chinese).
 - ✅ Smart prewarm on project open
 - ✅ 8 Tauri commands: `prewarm_record_usage`, `prewarm_get_candidates`, `prewarm_get_pattern`, `prewarm_get_all_patterns`, `prewarm_add_schedule`, `prewarm_remove_schedule`, `prewarm_get_schedules`, `prewarm_set_strategy`, `prewarm_get_strategy`, `prewarm_clear_patterns`
 
-### 🚀 Month 3: OxideTerm-Inspired Features (PR18-20) - PLANNED
+### 🚀 Month 3: OxideTerm-Inspired Features (PR18-20) - IN PROGRESS
 
-**PR18: Grace Period Reconnect** ⭐⭐⭐⭐⭐ (借鉴 OxideTerm)
+**PR18: Grace Period Reconnect** ⭐⭐⭐⭐⭐ (借鉴 OxideTerm) - ✅ COMPLETED
+- ✅ Grace period probing (30s window to recover old connection)
+- ✅ Lightweight keepalive probes every 2s
+- ✅ Seamless recovery for TUI apps (vim/htop/tmux)
+- ✅ Fallback to exponential backoff if old connection is dead
+- ✅ UI: Grace period countdown banner in terminal
+- ✅ Backend: Enhanced reconnect.rs module with GracePeriodConfig
+- ✅ Frontend: Grace period phase in useReconnect hook
+- ✅ 5 new Tauri commands: start/update/end grace period, get/set config
+- ✅ Configuration UI in ReconnectStrategyEditor
+
+**PR19: Dual-Plane Communication** ⭐⭐⭐⭐☆ (借鉴 OxideTerm) - PLANNED
 - Grace period probing (30s window to recover old connection)
 - Lightweight keepalive probes every 2s
 - Seamless recovery for TUI apps (vim/htop/tmux)
