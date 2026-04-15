@@ -8,9 +8,12 @@ import {
   reconnectSetStrategy,
   reconnectGetStrategy,
   reconnectGetStats,
+  reconnectGetGracePeriodConfig,
+  reconnectSetGracePeriodConfig,
   ReconnectContext,
   ReconnectStrategy,
   ReconnectStats,
+  GracePeriodConfig,
 } from '../lib/backend-reconnect';
 
 /**
@@ -275,7 +278,59 @@ export function useAutoReconnect(
   return {
     context,
     isReconnecting: context?.state === 'attempting' || context?.state === 'backoff',
+    isGracePeriod: context?.state === 'grace_period',
+    gracePeriodProgress: context?.grace_period_elapsed && context?.grace_period_total
+      ? {
+          elapsed: context.grace_period_elapsed,
+          total: context.grace_period_total,
+          percentage: (context.grace_period_elapsed / context.grace_period_total) * 100,
+        }
+      : null,
     start: () => start(strategy),
     markSuccess,
   };
+}
+
+/**
+ * Hook for managing grace period configuration
+ */
+export function useGracePeriodConfig() {
+  const [config, setConfigState] = useState<GracePeriodConfig | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchConfig = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const data = await reconnectGetGracePeriodConfig();
+      setConfigState(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const updateConfig = useCallback(async (newConfig: GracePeriodConfig) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      await reconnectSetGracePeriodConfig(newConfig);
+      setConfigState(newConfig);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
+
+  return { config, loading, error, updateConfig, refresh: fetchConfig };
 }
