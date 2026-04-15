@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import {
-  lifecycleCreateSession,
   lifecycleGetSession,
   lifecycleRecordActivity,
   lifecyclePauseSession,
@@ -14,7 +13,7 @@ import {
   lifecycleSetPolicy,
   SessionLifecycle,
   LifecycleStats,
-} from '@/lib/backend-lifecycle';
+} from '../lib/backend-lifecycle';
 
 /**
  * Hook for managing session lifecycle
@@ -186,8 +185,8 @@ export function useAutoLifecycle(sessionId: string | null, options?: {
   } = options || {};
 
   const { recordActivity } = useSessionLifecycle(sessionId);
-  const keepAliveTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const transitionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const keepAliveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const transitionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Keep-alive mechanism
   useEffect(() => {

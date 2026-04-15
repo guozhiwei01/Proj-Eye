@@ -2,6 +2,8 @@
  * Connection Pool Backend API
  */
 
+import { withBackend } from "./backend";
+
 // Connection Pool APIs
 export async function poolAcquire(projectId: string, serverId: string): Promise<string> {
   return withBackend("pool_acquire", { projectId, serverId }, async () => {
